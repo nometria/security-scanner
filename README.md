@@ -10,6 +10,26 @@ This scanner catches those before they hit production.
 
 ---
 
+## Quick start
+
+```bash
+# Clone and install
+git clone https://github.com/ownmy-app/security-scanner
+cd security-scanner
+pip install -e .
+
+# Scan your project
+security-scan ./my-app
+
+# Scan a directory and output JSON
+security-scan ./my-app --format json
+
+# Scan the included example file
+security-scan examples/ --no-color
+```
+
+---
+
 ## Rules
 
 | Rule | Severity | Catches |
@@ -35,7 +55,7 @@ This scanner catches those before they hit production.
 pip install security-scan        # PyPI (coming soon)
 
 # From source:
-git clone https://github.com/YOUR_ORG/security-scanner
+git clone https://github.com/ownmy-app/security-scanner
 cd security-scanner
 pip install -e .
 ```
@@ -119,7 +139,7 @@ from security_scanner.scanner import Finding, HIGH
 def check_no_http_fetch(path, rel, lines):
     findings = []
     for i, line in enumerate(lines, 1):
-        if 'fetch(\"http://' in line:
+        if 'fetch("http://' in line:
             findings.append(Finding(
                 rule_id="CUSTOM-001", severity=HIGH,
                 file=rel, line=i,
@@ -147,3 +167,52 @@ def check_no_http_fetch(path, rel, lines):
 - Drive inbound: every AI app builder user is a potential Nometria customer
 - Upsell: "scan found issues → let us help you fix and self-host securely"
 - GitHub App: auto-scan every PR, post findings as PR review comments — $9–19/mo/repo
+
+---
+
+## Example output
+
+Running `security-scan examples/ --no-color` against the included `examples/vulnerable.js`:
+
+```
+Scanning /tmp/ownmy-releases/security-scanner/examples ...
+
+══════════════════════════════════════════════════════════════════════
+  SECURITY SCAN — 1 files scanned, 5 findings
+══════════════════════════════════════════════════════════════════════
+
+  🔴 [CRITICAL] SEC-001
+     File   : vulnerable.js:4
+     Issue  : Hardcoded API key detected
+     Code   : const API_KEY = "sk-live-abc123def456ghi789jkl012mno345pqr678";
+     Fix    : Move to environment variables. Never commit secrets to source control.
+
+  🔴 [CRITICAL] SEC-001
+     File   : vulnerable.js:5
+     Issue  : Hardcoded password detected
+     Code   : const DB_PASSWORD = "SuperSecret123!";
+     Fix    : Move to environment variables. Never commit secrets to source control.
+
+  🟠 [HIGH] SEC-003
+     File   : vulnerable.js:10
+     Issue  : Dangerous eval/exec usage — potential code injection
+     Code   : return eval(input);
+     Fix    : Avoid eval/exec with user input. Use JSON.parse() or safe alternatives.
+
+  🟠 [HIGH] SEC-004
+     File   : vulnerable.js:15
+     Issue  : Potential SQL injection — string interpolation in query
+     Code   : const query = `SELECT * FROM users WHERE id = ${userId}`;
+     Fix    : Use parameterised queries: db.query('SELECT * FROM t WHERE id = $1', [id])
+
+  🟠 [HIGH] SEC-004
+     File   : vulnerable.js:20
+     Issue  : Potential SQL injection — string interpolation in query
+     Code   : const sql = "SELECT * FROM products WHERE name = '" + term + "'";
+     Fix    : Use parameterised queries: db.query('SELECT * FROM t WHERE id = $1', [id])
+
+──────────────────────────────────────────────────────────────────────
+  Critical: 2  |  High: 3  |  Medium: 0  |  Low: 0
+  Overall: ❌ FAIL
+──────────────────────────────────────────────────────────────────────
+```

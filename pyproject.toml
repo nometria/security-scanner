@@ -17,13 +17,13 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
 ]
-dependencies = []  # zero runtime dependencies — pure stdlib
+dependencies = []
 
 [project.scripts]
 security-scan = "security_scanner.cli:main"
 
-[tool.hatch.build.targets.wheel.sources]
-"src" = "security_scanner"
+[tool.hatch.build.targets.wheel]
+packages = ["security_scanner"]
 
 [project.urls]
-Repository = "https://github.com/YOUR_ORG/security-scanner"
+Repository = "https://github.com/ownmy-app/security-scanner"
