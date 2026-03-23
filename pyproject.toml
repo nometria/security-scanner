@@ -19,6 +19,9 @@ classifiers = [
 ]
 dependencies = []
 
+[project.optional-dependencies]
+dev = ["pytest>=7", "ruff>=0.4"]
+
 [project.scripts]
 security-scan = "security_scanner.cli:main"
 
