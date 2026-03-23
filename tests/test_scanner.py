@@ -27,7 +27,8 @@ def make_project(files: dict) -> Path:
 # ── SEC-001: secrets ──────────────────────────────────────────────────────────
 
 def test_openai_key_detected():
-    project = make_project({"src/config.ts": "const key = 'sk-abcdefghijklmnopqrstuvwxyz0123456789012345678';"})
+    # sk- followed by exactly 48 alphanumeric chars (matches OpenAI key pattern)
+    project = make_project({"src/config.ts": "const key = 'sk-aaaabbbbccccddddeeeeffffgggghhhhiiiijjjjkkkkllll';"})
     result = scan_project(project)
     assert any(f.rule_id == "SEC-001" and f.severity == CRITICAL for f in result.findings)
 

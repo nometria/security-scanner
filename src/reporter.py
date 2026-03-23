@@ -4,7 +4,10 @@ Supports: console (ANSI), JSON, SARIF (GitHub Code Scanning), Markdown.
 """
 import json
 from typing import Optional
-from .scanner import ScanResult, Finding, CRITICAL, HIGH, MEDIUM, LOW
+try:
+    from .scanner import ScanResult, Finding, CRITICAL, HIGH, MEDIUM, LOW
+except ImportError:
+    from scanner import ScanResult, Finding, CRITICAL, HIGH, MEDIUM, LOW  # type: ignore[no-redef]
 
 
 SEVERITY_EMOJI = {CRITICAL: "🔴", HIGH: "🟠", MEDIUM: "🟡", LOW: "🔵"}
