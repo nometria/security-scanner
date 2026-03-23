@@ -37,8 +37,8 @@ def main():
         sys.exit(2)
 
     # Lazy import so startup is fast
-    from scanner import scan_project
-    from reporter import format_console, format_json, format_sarif, format_markdown
+    from security_scanner.scanner import scan_project
+    from security_scanner.reporter import format_console, format_json, format_sarif, format_markdown
 
     print(f"Scanning {root} ...", file=sys.stderr)
     result = scan_project(root)

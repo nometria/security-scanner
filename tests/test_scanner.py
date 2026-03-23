@@ -6,7 +6,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from scanner import (
+from security_scanner.scanner import (
     scan_project, check_secrets, check_eval_exec, check_sql_injection,
     check_cors_wildcard, check_localstorage_auth, check_console_env,
     check_supabase_service_key_clientside,
@@ -120,7 +120,7 @@ def test_clean_project_passes():
 # ── Report formats ────────────────────────────────────────────────────────────
 
 def test_json_report_structure():
-    from reporter import format_json
+    from security_scanner.reporter import format_json
     import json
     project = make_project({"src/bad.js": "const key = 'sk-abcdefghijklmnopqrstuvwxyz0123456789012345678';"})
     result = scan_project(project)
@@ -131,7 +131,7 @@ def test_json_report_structure():
 
 
 def test_sarif_report_valid():
-    from reporter import format_sarif
+    from security_scanner.reporter import format_sarif
     import json
     project = make_project({})
     result = scan_project(project)

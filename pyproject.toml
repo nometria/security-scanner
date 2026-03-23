@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ai-security-scan"
-version = "0.1.0"
+version = "0.1.1"
 description = "Static security scanner for AI-generated web app code. Finds hardcoded secrets, injection risks, CORS misconfigs and more."
 readme = "README.md"
 license = { text = "MIT" }
@@ -27,6 +27,10 @@ security-scan = "security_scanner.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/security_scanner"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
 
 [project.urls]
 Repository = "https://github.com/nometria/security-scanner"
