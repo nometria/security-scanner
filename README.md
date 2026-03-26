@@ -14,7 +14,7 @@ This scanner catches those before they hit production.
 
 ```bash
 # Clone and install
-git clone https://github.com/ownmy-app/security-scanner
+git clone https://github.com/nometria/security-scanner
 cd security-scanner
 pip install -e .
 
@@ -55,7 +55,7 @@ security-scan examples/ --no-color
 pip install security-scan        # PyPI (coming soon)
 
 # From source:
-git clone https://github.com/ownmy-app/security-scanner
+git clone https://github.com/nometria/security-scanner
 cd security-scanner
 pip install -e .
 ```
