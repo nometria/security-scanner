@@ -1,0 +1,32 @@
+# .github/workflows/security-scan.yml
+#
+# Run the security scanner on every push and pull request.
+# Posts findings as PR comments and uploads SARIF to GitHub Code Scanning.
+
+name: Security Scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+  security-events: write   # Required for SARIF upload
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: nometria/security-scanner@main
+        with:
+          target_dir: '.'
+          format: 'text'
+          fail_on_findings: 'true'
+          fail_on: 'high'
+          post_comment: 'true'
+          sarif_upload: 'true'

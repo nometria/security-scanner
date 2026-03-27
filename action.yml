@@ -1,0 +1,141 @@
+name: 'Security Scan'
+description: 'Static security scanner for AI-generated web app code. Finds hardcoded secrets, injection risks, CORS misconfigs, and more.'
+author: 'nometria'
+
+branding:
+  icon: 'shield'
+  color: 'red'
+
+inputs:
+  target_dir:
+    description: 'Directory to scan (relative to repository root)'
+    required: false
+    default: '.'
+  format:
+    description: 'Output format: text, json, or markdown'
+    required: false
+    default: 'text'
+  fail_on_findings:
+    description: 'Fail the action (exit code 1) if any findings at high+ severity'
+    required: false
+    default: 'true'
+  fail_on:
+    description: 'Minimum severity to fail on: critical, high, medium, low, any'
+    required: false
+    default: 'high'
+  python_version:
+    description: 'Python version to use'
+    required: false
+    default: '3.11'
+  post_comment:
+    description: 'Post scan results as a PR comment (only works on pull_request events)'
+    required: false
+    default: 'true'
+  sarif_upload:
+    description: 'Upload SARIF results to GitHub Code Scanning'
+    required: false
+    default: 'true'
+
+outputs:
+  passed:
+    description: 'Whether the scan passed with no high+ findings (true/false)'
+    value: ${{ steps.scan.outputs.passed }}
+  findings_count:
+    description: 'Total number of findings'
+    value: ${{ steps.scan.outputs.findings_count }}
+  critical_count:
+    description: 'Number of critical findings'
+    value: ${{ steps.scan.outputs.critical_count }}
+  report:
+    description: 'Scan report in the requested format'
+    value: ${{ steps.scan.outputs.report }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python_version }}
+
+    - name: Install security-scan
+      shell: bash
+      run: pip install ai-security-scan
+
+    - name: Run security scan
+      id: scan
+      shell: bash
+      run: |
+        TARGET="${{ inputs.target_dir }}"
+
+        # Map 'text' format to 'console' for the CLI
+        FORMAT="${{ inputs.format }}"
+        if [ "$FORMAT" = "text" ]; then
+          FORMAT="console"
+        fi
+
+        # Run the scan and capture output
+        set +e
+        REPORT=$(security-scan "$TARGET" --format "$FORMAT" --no-color --fail-on "${{ inputs.fail_on }}" 2>&1)
+        SCAN_EXIT=$?
+        set -e
+
+        # Also run JSON to extract counts
+        JSON_REPORT=$(security-scan "$TARGET" --format json 2>/dev/null || echo '{}')
+
+        FINDINGS_COUNT=$(echo "$JSON_REPORT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('summary',{}).get('total',0))" 2>/dev/null || echo "0")
+        CRITICAL_COUNT=$(echo "$JSON_REPORT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('summary',{}).get('critical',0))" 2>/dev/null || echo "0")
+
+        if [ "$SCAN_EXIT" -eq 0 ]; then
+          echo "passed=true" >> $GITHUB_OUTPUT
+        else
+          echo "passed=false" >> $GITHUB_OUTPUT
+        fi
+
+        echo "findings_count=$FINDINGS_COUNT" >> $GITHUB_OUTPUT
+        echo "critical_count=$CRITICAL_COUNT" >> $GITHUB_OUTPUT
+
+        echo "report<<EOF" >> $GITHUB_OUTPUT
+        echo "$REPORT" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+        echo "$REPORT"
+
+    - name: Generate SARIF report
+      id: sarif
+      if: ${{ inputs.sarif_upload == 'true' }}
+      shell: bash
+      run: |
+        security-scan "${{ inputs.target_dir }}" --format sarif --output results.sarif 2>/dev/null || true
+
+    - name: Upload SARIF to GitHub Code Scanning
+      if: ${{ inputs.sarif_upload == 'true' && hashFiles('results.sarif') != '' }}
+      uses: github/codeql-action/upload-sarif@v3
+      continue-on-error: true
+      with:
+        sarif_file: results.sarif
+
+    - name: Post PR comment
+      if: ${{ inputs.post_comment == 'true' && github.event_name == 'pull_request' && steps.scan.outputs.findings_count != '0' }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        # Generate markdown report for the comment
+        MD_REPORT=$(security-scan "${{ inputs.target_dir }}" --format markdown 2>/dev/null || echo "Security scan completed with findings.")
+
+        COMMENT_BODY="## Security Scan Results
+
+        $MD_REPORT
+
+        ---
+        *Posted by [security-scan](https://github.com/nometria/security-scanner) GitHub Action*"
+
+        gh pr comment "${{ github.event.number }}" --body "$COMMENT_BODY" || true
+
+    - name: Fail on findings
+      if: ${{ inputs.fail_on_findings == 'true' && steps.scan.outputs.passed == 'false' }}
+      shell: bash
+      run: |
+        echo "Security scan failed with ${{ steps.scan.outputs.findings_count }} finding(s) (${{ steps.scan.outputs.critical_count }} critical)."
+        exit 1

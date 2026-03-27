@@ -85,17 +85,94 @@ security-scan . --fail-on critical
 
 # No color (CI-friendly)
 security-scan . --no-color
+
+# Watch mode — re-scans on file changes (polls every 2s)
+security-scan . --watch
+
+# Watch with JSON output
+security-scan ./my-app --watch --format json
 ```
+
+### Watch mode
+
+The `--watch` flag monitors your project for file changes and re-runs the scan automatically.
+Uses lightweight mtime polling (every 2 seconds) with zero extra dependencies -- no `watchdog` needed.
+
+```
+$ security-scan ./my-app --watch
+Scanning /path/to/my-app ...
+<scan results>
+
+Watching /path/to/my-app for changes (poll every 2.0s). Press Ctrl+C to stop.
+
+[14:32:07] Change detected (1 modified). Re-scanning...
+<updated scan results>
+```
+
+In watch mode the process runs continuously and does not exit on findings, making it suitable for IDE integration and development workflows.
 
 ---
 
-## GitHub Actions integration
+## GitHub Action
+
+Use the composite GitHub Action for a turnkey CI integration with PR comments, SARIF upload, and configurable failure thresholds.
 
 ```yaml
 # .github/workflows/security-scan.yml
 name: Security Scan
-on: [push, pull_request]
+on:
+  push:
+    branches: [main]
+  pull_request:
 
+permissions:
+  contents: read
+  pull-requests: write
+  security-events: write
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: nometria/security-scanner@main
+        with:
+          target_dir: '.'
+          format: 'text'
+          fail_on_findings: 'true'
+          fail_on: 'high'
+          post_comment: 'true'
+          sarif_upload: 'true'
+```
+
+### Action inputs
+
+| Input | Default | Description |
+|-------|---------|-------------|
+| `target_dir` | `.` | Directory to scan |
+| `format` | `text` | Output format: `text`, `json`, or `markdown` |
+| `fail_on_findings` | `true` | Fail the action if findings meet the severity threshold |
+| `fail_on` | `high` | Minimum severity to fail: `critical`, `high`, `medium`, `low`, `any` |
+| `post_comment` | `true` | Post results as a PR comment (pull_request events only) |
+| `sarif_upload` | `true` | Upload SARIF results to GitHub Code Scanning |
+| `python_version` | `3.11` | Python version to use |
+
+### Action outputs
+
+| Output | Description |
+|--------|-------------|
+| `passed` | `true` if no findings at or above the fail threshold |
+| `findings_count` | Total number of findings |
+| `critical_count` | Number of critical findings |
+| `report` | Full scan report in the requested format |
+
+See [`examples/security-scan-action.yml`](examples/security-scan-action.yml) for a complete workflow example.
+
+#### Manual pip-based workflow
+
+If you prefer not to use the composite action, you can install and run directly:
+
+```yaml
 jobs:
   scan:
     runs-on: ubuntu-latest
@@ -103,7 +180,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: '3.11' }
-      - run: pip install security-scan
+      - run: pip install ai-security-scan
       - run: security-scan . --format sarif --output results.sarif --fail-on high
       - uses: github/codeql-action/upload-sarif@v3
         if: always()
@@ -154,11 +231,11 @@ def check_no_http_fetch(path, rel, lines):
 ---
 
 ## Immediate next steps
-1. Publish to PyPI: `pip install security-scan`
+1. ~~Publish to PyPI: `pip install ai-security-scan`~~ Done
 2. Publish to npm as `npx security-scan` wrapper
-3. Submit to GitHub Marketplace as an Action
+3. ~~Submit to GitHub Marketplace as an Action~~ Done (`action.yml`)
 4. Add SEC-005 (missing auth middleware) — requires AST parsing
-5. Add `--watch` mode for IDE integration
+5. ~~Add `--watch` mode for IDE integration~~ Done (`--watch` flag)
 
 ---
 
