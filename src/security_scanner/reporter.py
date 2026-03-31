@@ -3,7 +3,6 @@ Output formatters for security scan results.
 Supports: console (ANSI), JSON, SARIF (GitHub Code Scanning), Markdown.
 """
 import json
-import sys
 import time
 try:
     from .scanner import ScanResult, CRITICAL, HIGH, MEDIUM, LOW
