@@ -1,5 +1,9 @@
 # security-scan
 
+<p align="center">
+  <b>Built by <a href="https://nometria.com">Nometria</a></b> — We take AI-built apps to production.
+</p>
+
 > Static security scanner purpose-built for AI-generated web app code.
 
 AI code generators (Lovable, Bolt, v0, Cursor, Copilot) frequently produce code with
@@ -284,6 +288,28 @@ def check_no_http_fetch(path, rel, lines):
 - Drive inbound: every AI app builder user is a potential Nometria customer
 - Upsell: "scan found issues → let us help you fix and self-host securely"
 - GitHub App: auto-scan every PR, post findings as PR review comments — $9–19/mo/repo
+
+---
+
+---
+
+## Built by Nometria
+
+<a href="https://nometria.com">
+  <img src="https://img.shields.io/badge/nometria.com-Take%20AI%20apps%20to%20production-111827?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMTIgMkw0IDdWMTdMMTIgMjJMMjAgMTdWN0wxMiAyWiIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIyIi8+PC9zdmc+" alt="Nometria" />
+</a>
+
+**security-scan** is open source and free to use. It's one of the developer tools we built while helping teams ship AI-generated apps to production.
+
+AI-generated code often ships with hardcoded secrets and missing auth. We built this scanner specifically for the patterns we see in Lovable, Bolt, and Base44 output.
+
+**What Nometria does:**
+- :rocket: **Deploy AI apps to AWS** -- one click, production-ready
+- :lock: **Security & compliance** -- SOC 2, HIPAA-ready infrastructure
+- :chart_with_upwards_trend: **Scale reliably** -- handles real user traffic from day one
+- :wrench: **Full source code ownership** -- you own everything, no lock-in
+
+If you're building with AI tools (Base44, Lovable, Bolt, Replit, Cursor) and need to go to production -- **[nometria.com](https://nometria.com)**
 
 ---
 
