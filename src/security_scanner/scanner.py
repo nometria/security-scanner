@@ -268,6 +268,30 @@ def check_supabase_service_key_clientside(path: Path, rel: str, lines: List[str]
     return findings
 
 
+# ── Single-file scanner ──────────────────────────────────────────────────────
+
+def _scan_single_file(path: Path, rel: str, project_root: Path) -> List[Finding]:
+    """Run all checks on a single file and return findings."""
+    lines = _read_lines(path)
+    findings: List[Finding] = []
+    findings.extend(check_secrets(path, rel, lines))
+    findings.extend(check_env_committed(path, rel, project_root))
+    findings.extend(check_eval_exec(path, rel, lines))
+    findings.extend(check_sql_injection(path, rel, lines))
+    findings.extend(check_cors_wildcard(path, rel, lines))
+    findings.extend(check_http_hardcoded(path, rel, lines))
+    findings.extend(check_localstorage_auth(path, rel, lines))
+    findings.extend(check_console_env(path, rel, lines))
+    findings.extend(check_supabase_service_key_clientside(path, rel, lines))
+    return findings
+
+
+def _sort_findings(findings: List[Finding]) -> None:
+    """Sort findings in place by severity, then file, then line."""
+    sev_order = {CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3, INFO: 4}
+    findings.sort(key=lambda f: (sev_order.get(f.severity, 99), f.file, f.line))
+
+
 # ── Main scanner ─────────────────────────────────────────────────────────────
 
 def scan_project(project_root: Path) -> ScanResult:
@@ -295,21 +319,40 @@ def scan_project(project_root: Path) -> ScanResult:
         except ValueError:
             continue
 
-        lines = _read_lines(path)
         result.scanned += 1
+        result.findings.extend(_scan_single_file(path, rel, project_root))
 
-        result.findings.extend(check_secrets(path, rel, lines))
-        result.findings.extend(check_env_committed(path, rel, project_root))
-        result.findings.extend(check_eval_exec(path, rel, lines))
-        result.findings.extend(check_sql_injection(path, rel, lines))
-        result.findings.extend(check_cors_wildcard(path, rel, lines))
-        result.findings.extend(check_http_hardcoded(path, rel, lines))
-        result.findings.extend(check_localstorage_auth(path, rel, lines))
-        result.findings.extend(check_console_env(path, rel, lines))
-        result.findings.extend(check_supabase_service_key_clientside(path, rel, lines))
+    _sort_findings(result.findings)
+    return result
 
-    # Sort by severity
-    sev_order = {CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3, INFO: 4}
-    result.findings.sort(key=lambda f: (sev_order.get(f.severity, 99), f.file, f.line))
 
+def scan_files(project_root: Path, relative_paths: List[str]) -> ScanResult:
+    """
+    Scan only the specified files within a project.
+
+    This is used by watch mode to re-scan only changed files instead of the
+    entire project tree, keeping incremental re-scans fast.
+
+    Args:
+        project_root:    Absolute path to the project root.
+        relative_paths:  List of paths relative to project_root to scan.
+
+    Returns:
+        ScanResult containing findings only for the given files.
+    """
+    result = ScanResult()
+
+    for rel in relative_paths:
+        path = project_root / rel
+        if not path.is_file():
+            continue
+        if _should_skip(path, project_root):
+            continue
+        if path.suffix not in SOURCE_EXTS and not path.name.startswith(".env"):
+            continue
+
+        result.scanned += 1
+        result.findings.extend(_scan_single_file(path, rel, project_root))
+
+    _sort_findings(result.findings)
     return result

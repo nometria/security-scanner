@@ -98,18 +98,58 @@ security-scan ./my-app --watch --format json
 The `--watch` flag monitors your project for file changes and re-runs the scan automatically.
 Uses lightweight mtime polling (every 2 seconds) with zero extra dependencies -- no `watchdog` needed.
 
+On each change only the modified files are re-scanned (incremental), while the full findings
+list is kept up to date. The terminal is cleared and refreshed so you always see a clean report.
+
 ```
 $ security-scan ./my-app --watch
-Scanning /path/to/my-app ...
-<scan results>
 
-Watching /path/to/my-app for changes (poll every 2.0s). Press Ctrl+C to stop.
+[14:31:55] Full scan
 
-[14:32:07] Change detected (1 modified). Re-scanning...
-<updated scan results>
+══════════════════════════════════════════════════════════════════════
+  SECURITY SCAN — 12 files scanned, 3 findings
+══════════════════════════════════════════════════════════════════════
+  ...
+
+Watching for changes... (Ctrl+C to stop)
+
+[14:32:07] Re-scanned 1 changed file(s)
+
+══════════════════════════════════════════════════════════════════════
+  SECURITY SCAN — 13 files scanned, 2 findings
+══════════════════════════════════════════════════════════════════════
+  ...
+
+Watching for changes... (Ctrl+C to stop)
 ```
 
-In watch mode the process runs continuously and does not exit on findings, making it suitable for IDE integration and development workflows.
+In watch mode the process runs continuously and does not exit on findings, making it suitable
+for IDE integration and development workflows.
+
+### IDE integration
+
+Run the scanner in a side terminal while you code -- findings update live as you save files.
+
+**VS Code** -- open a terminal pane (`Ctrl+`` `) and run:
+```bash
+security-scan --watch .
+```
+Split the terminal so the scan output is always visible beside your editor.
+
+**JetBrains (WebStorm / PyCharm)** -- add an *External Tool* or *Run Configuration*:
+- Program: `security-scan`
+- Arguments: `--watch $ProjectFileDir$`
+- Working directory: `$ProjectFileDir$`
+
+**Neovim / tmux** -- keep a tmux split running:
+```bash
+tmux split-window -h 'security-scan --watch .'
+```
+
+**CI / pre-commit** -- for one-shot scans in CI, omit `--watch`:
+```bash
+security-scan . --format sarif --output results.sarif --fail-on high
+```
 
 ---
 
@@ -235,7 +275,7 @@ def check_no_http_fetch(path, rel, lines):
 2. Publish to npm as `npx security-scan` wrapper
 3. ~~Submit to GitHub Marketplace as an Action~~ Done (`action.yml`)
 4. Add SEC-005 (missing auth middleware) — requires AST parsing
-5. ~~Add `--watch` mode for IDE integration~~ Done (`--watch` flag)
+5. ~~Add `--watch` mode for IDE integration~~ Done (`--watch` flag with incremental re-scan)
 
 ---
 
