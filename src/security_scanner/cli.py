@@ -52,19 +52,63 @@ def _diff_mtimes(old, new):
     return added, modified, removed
 
 
-def watch_loop(root, run_scan_fn, poll_interval=2.0):
-    """Watch for file changes and re-run the scan.
+def watch_loop(root, fmt_name="console", output_file=None, no_color=False, poll_interval=2.0):
+    """Watch for file changes and incrementally re-scan.
+
+    Does a full scan on startup, then polls for mtime changes every
+    ``poll_interval`` seconds.  Only changed files are re-scanned; their
+    findings replace the previous findings for those files, keeping the
+    overall result set current without repeating a full tree walk.
+
+    The terminal is cleared before each update so the developer always sees
+    a clean report plus a "Watching for changes..." status line.
 
     Args:
         root:           Project root Path.
-        run_scan_fn:    Callable that runs a scan and prints results. Returns None.
+        fmt_name:       Format name ("console", "json", "sarif", "markdown").
+        output_file:    Optional path; when set, each scan writes here too.
+        no_color:       Disable ANSI colours.
         poll_interval:  Seconds between mtime polls (default: 2.0).
     """
-    print(f"\nWatching {root} for changes (poll every {poll_interval}s). Press Ctrl+C to stop.\n", file=sys.stderr)
+    from security_scanner.scanner import scan_project, scan_files, ScanResult, _sort_findings
+    from security_scanner.reporter import (
+        format_console, format_json, format_sarif, format_markdown,
+        format_watch_output,
+    )
 
-    # Initial scan
-    run_scan_fn()
+    formatters = {
+        "console":  format_console,
+        "json":     format_json,
+        "sarif":    format_sarif,
+        "markdown": format_markdown,
+    }
+    format_fn = formatters[fmt_name]
+
+    def _format_result(result):
+        if fmt_name == "console":
+            return format_console(result, no_color=no_color)
+        return format_fn(result)
+
+    def _write_output(result, changed_files=None):
+        output = format_watch_output(result, format_fn, changed_files=changed_files,
+                                     no_color=no_color)
+        sys.stdout.write(output)
+        sys.stdout.flush()
+        if output_file:
+            Path(output_file).write_text(_format_result(result), encoding="utf-8")
+
+    # ── Initial full scan ────────────────────────────────────────────────
+    result = scan_project(root)
+    _write_output(result, changed_files=None)
+
+    # Keep a per-file findings cache so we can swap in incremental results
+    # Key: relative path, Value: list of Finding
+    findings_by_file = {}
+    for f in result.findings:
+        findings_by_file.setdefault(f.file, []).append(f)
+
     prev_mtimes = _collect_mtimes(root)
+    scanned_total = result.scanned
 
     try:
         while True:
@@ -72,18 +116,30 @@ def watch_loop(root, run_scan_fn, poll_interval=2.0):
             curr_mtimes = _collect_mtimes(root)
             added, modified, removed = _diff_mtimes(prev_mtimes, curr_mtimes)
 
-            if added or modified or removed:
-                changes = []
-                if added:
-                    changes.append(f"{len(added)} added")
-                if modified:
-                    changes.append(f"{len(modified)} modified")
-                if removed:
-                    changes.append(f"{len(removed)} removed")
-                timestamp = time.strftime("%H:%M:%S")
-                print(f"\n[{timestamp}] Change detected ({', '.join(changes)}). Re-scanning...\n", file=sys.stderr)
-                run_scan_fn()
-                prev_mtimes = curr_mtimes
+            if not (added or modified or removed):
+                continue
+
+            changed_files = added + modified
+
+            # Remove findings for deleted/changed files
+            for rel in changed_files + removed:
+                findings_by_file.pop(rel, None)
+
+            # Re-scan only the changed / new files
+            if changed_files:
+                incremental = scan_files(root, changed_files)
+                for f in incremental.findings:
+                    findings_by_file.setdefault(f.file, []).append(f)
+                scanned_total += incremental.scanned
+
+            # Rebuild a merged ScanResult
+            merged = ScanResult(scanned=scanned_total)
+            for file_findings in findings_by_file.values():
+                merged.findings.extend(file_findings)
+            _sort_findings(merged.findings)
+
+            _write_output(merged, changed_files=changed_files)
+            prev_mtimes = curr_mtimes
     except KeyboardInterrupt:
         print("\nWatch stopped.", file=sys.stderr)
 
@@ -145,7 +201,8 @@ def main():
 
     if args.watch:
         # In watch mode, run continuously — don't exit on findings
-        watch_loop(root, run_scan)
+        watch_loop(root, fmt_name=args.format, output_file=args.output,
+                   no_color=args.no_color)
         sys.exit(0)
 
     # Single run mode

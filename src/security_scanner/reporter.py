@@ -3,6 +3,8 @@ Output formatters for security scan results.
 Supports: console (ANSI), JSON, SARIF (GitHub Code Scanning), Markdown.
 """
 import json
+import sys
+import time
 try:
     from .scanner import ScanResult, CRITICAL, HIGH, MEDIUM, LOW
 except ImportError:
@@ -12,6 +14,8 @@ except ImportError:
 SEVERITY_EMOJI = {CRITICAL: "🔴", HIGH: "🟠", MEDIUM: "🟡", LOW: "🔵"}
 SEVERITY_ANSI  = {CRITICAL: "\033[91m", HIGH: "\033[93m", MEDIUM: "\033[94m", LOW: "\033[96m"}
 RESET = "\033[0m"
+CLEAR_SCREEN = "\033[2J\033[H"
+DIM = "\033[2m"
 
 
 def format_console(result: ScanResult, no_color: bool = False) -> str:
@@ -74,8 +78,14 @@ def format_json(result: ScanResult) -> str:
     }, indent=2)
 
 
-def format_sarif(result: ScanResult, tool_version: str = "0.1.0") -> str:
+def format_sarif(result: ScanResult, tool_version=None) -> str:
     """SARIF 2.1 format — supported by GitHub Code Scanning."""
+    if tool_version is None:
+        try:
+            from . import __version__
+            tool_version = __version__
+        except ImportError:
+            tool_version = "0.0.0"
     rules = {}
     for f in result.findings:
         if f.rule_id not in rules:
@@ -133,6 +143,41 @@ def format_markdown(result: ScanResult) -> str:
             shown.add(f.rule_id)
 
     return "\n".join(lines)
+
+
+def format_watch_output(result: ScanResult, formatter, changed_files=None,
+                        no_color: bool = False) -> str:
+    """Format scan results for watch mode with clear screen and status line.
+
+    Clears the terminal, prints the formatted scan results, then appends a
+    'Watching for changes...' status line so the developer always sees a
+    clean, up-to-date view.
+
+    Args:
+        result:         ScanResult from the latest scan.
+        formatter:      One of the format_* callables (format_console, etc.).
+        changed_files:  List of relative paths that changed (None on initial scan).
+        no_color:       Disable ANSI colours.
+    """
+    parts = [CLEAR_SCREEN]
+
+    timestamp = time.strftime("%H:%M:%S")
+    if changed_files:
+        parts.append(f"[{timestamp}] Re-scanned {len(changed_files)} changed file(s)\n")
+    else:
+        parts.append(f"[{timestamp}] Full scan\n")
+
+    # Delegate to the chosen formatter
+    if formatter is format_console:
+        parts.append(format_console(result, no_color=no_color))
+    else:
+        parts.append(formatter(result))
+
+    dim = "" if no_color else DIM
+    reset = "" if no_color else RESET
+    parts.append(f"\n{dim}Watching for changes... (Ctrl+C to stop){reset}\n")
+
+    return "".join(parts)
 
 
 def _sarif_level(severity: str) -> str:

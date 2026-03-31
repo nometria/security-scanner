@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ai-security-scan"
-version = "0.1.2"
+version = "0.2.0"
 description = "Static security scanner for AI-generated web app code. Finds hardcoded secrets, injection risks, CORS misconfigs and more."
 readme = "README.md"
 license = { text = "MIT" }
