@@ -1,16 +1,6 @@
 # security-scan
 
-<div align="center">
-
-**[Nometria](https://nometria.com)** takes AI-built apps to production on AWS — secure, scalable, ready for real users.
-
-<sub><i>AI-generated code often ships with hardcoded secrets and missing auth. We built this scanner specifically for the patterns we see in Lovable, Bolt, and Base44 output.</i></sub>
-
-[![Deploy with Nometria](https://img.shields.io/badge/Deploy%20with-Nometria-111827?style=for-the-badge)](https://nometria.com)
-
-</div>
-
----
+Built by the [Nometria](https://nometria.com) team — we take AI-built apps to production.
 
 > Static security scanner purpose-built for AI-generated web app code.
 
@@ -346,6 +336,3 @@ Scanning /tmp/ownmy-releases/security-scanner/examples ...
 ──────────────────────────────────────────────────────────────────────
 ```
 
----
-
-<p align="center">Made with ❤️ by <a href="https://nometria.com">Nometria</a> — deploy AI apps to production in one click</p>
