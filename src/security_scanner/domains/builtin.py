@@ -11,7 +11,6 @@ from typing import Any, Dict, List, Optional
 
 from security_scanner.scanner import (
     Finding,
-    _read_lines,
     _scan_single_file,
     _should_skip,
     _sort_findings,

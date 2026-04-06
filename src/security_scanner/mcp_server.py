@@ -153,7 +153,7 @@ def _dispatch_tool(name: str, args: Dict[str, Any]) -> Dict[str, Any]:
 
 def _tool_scan(args: dict) -> dict:
     from security_scanner.scanner import scan_project_v2
-    from security_scanner.config import ScanConfig, load_config
+    from security_scanner.config import load_config
 
     root = Path(args.get("path", ".")).resolve()
     config = load_config(root)

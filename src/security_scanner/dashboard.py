@@ -7,9 +7,7 @@ to git — providing quality trending without any server infrastructure.
 
 import time
 from pathlib import Path
-from typing import Optional
-
-from security_scanner.scanner import ScanResult, CRITICAL, HIGH, MEDIUM, LOW
+from security_scanner.scanner import ScanResult, LOW
 
 
 def generate_dashboard(result: ScanResult, project_name: str = "") -> str:
@@ -54,8 +52,8 @@ def generate_dashboard(result: ScanResult, project_name: str = "") -> str:
     high = result.high_count
     med = result.medium_count
     low = sum(1 for f in result.findings if f.severity == LOW)
-    lines.append(f"| Severity | Count |")
-    lines.append(f"|----------|-------|")
+    lines.append("| Severity | Count |")
+    lines.append("|----------|-------|")
     lines.append(f"| Critical | {crit} |")
     lines.append(f"| High     | {high} |")
     lines.append(f"| Medium   | {med} |")

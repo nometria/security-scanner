@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from security_scanner.scanner import Finding, CRITICAL, HIGH, MEDIUM, LOW
+from security_scanner.scanner import Finding, HIGH, MEDIUM, LOW
 
 from .base import Domain, DomainResult
 from .tool_runner import ToolRunner

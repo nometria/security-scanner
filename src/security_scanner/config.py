@@ -10,7 +10,7 @@ that handles the simple structures we need (keeps the package zero-dep).
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional
 
 CONFIG_FILENAMES = ("ai-security-scan.yml", ".ai-security-scan.yml")
 

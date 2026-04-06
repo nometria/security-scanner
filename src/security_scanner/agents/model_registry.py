@@ -8,7 +8,7 @@ only stdlib (urllib.request + json).  No external SDK required.
 import json
 import os
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Dict, List, Optional
 from urllib.request import Request, urlopen
 

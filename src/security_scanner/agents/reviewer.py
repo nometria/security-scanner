@@ -6,7 +6,7 @@ Advanced mode (optional): LLM-powered structured verdicts.
 """
 
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
 from security_scanner.scanner import Finding, ScanResult
 

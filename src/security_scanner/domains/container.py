@@ -25,7 +25,6 @@ _CVSS_SEVERITY = {
 
 def _find_dockerfiles(project_root: Path) -> List[Path]:
     """Find Dockerfiles in the project."""
-    patterns = ["Dockerfile", "Dockerfile.*", "*.dockerfile", "docker-compose.yml", "docker-compose.yaml"]
     found = []
     for p in project_root.rglob("*"):
         if p.is_file():

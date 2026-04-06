@@ -293,7 +293,6 @@ def check_missing_auth_middleware(path: Path, rel: str, lines: List[str]) -> Lis
     findings = []
     if path.suffix not in (".js", ".ts", ".mjs", ".cjs", ".py"):
         return []
-    full_text = "\n".join(lines)
 
     # Express: app.get/post/put/delete/patch without auth middleware
     # Exclude Python decorator lines (starts with @)
@@ -547,7 +546,7 @@ def scan_project_v2(project_root: Path, config=None) -> ScanResult:
         A unified ScanResult aggregating findings from every enabled domain.
     """
     from concurrent.futures import ThreadPoolExecutor, as_completed
-    from security_scanner.config import ScanConfig, load_config
+    from security_scanner.config import load_config
     from security_scanner.domains import discover_domains, get_domain, get_all_domains
 
     if config is None:

@@ -1,7 +1,7 @@
 """Verdict data models for the review agent."""
 
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import List
 
 from security_scanner.scanner import Finding
 

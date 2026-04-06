@@ -11,7 +11,7 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from security_scanner.scanner import ScanResult, CRITICAL, HIGH, MEDIUM, LOW
+from security_scanner.scanner import ScanResult, LOW
 
 DEFAULT_HISTORY_DIR = ".ai-security-scan"
 DEFAULT_HISTORY_FILE = "quality-history.json"

@@ -5,7 +5,6 @@ All operations use stdlib only (urllib, tarfile, zipfile, hashlib).
 """
 
 import hashlib
-import os
 import stat
 import tarfile
 import zipfile
@@ -95,7 +94,7 @@ class ToolProvisioner:
 
         try:
             urlretrieve(url, download_path)
-        except Exception as e:
+        except Exception:
             return None
 
         # Verify SHA-256 if available

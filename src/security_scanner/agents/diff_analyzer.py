@@ -6,7 +6,7 @@ Advanced mode (optional): sends diff summary to an LLM for risk-area identificat
 """
 
 from pathlib import Path
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Set
 
 from .models import ScanPlan
 

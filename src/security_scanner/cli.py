@@ -90,11 +90,11 @@ def _init_command():
             "- `security-scan . --mode pr --base-ref origin/main` — scan PR changes only\n"
             "- `security-scan . --format json` — JSON output for CI\n"
         )
-        print(f"Created: .claude/CLAUDE.md")
+        print("Created: .claude/CLAUDE.md")
     else:
-        print(f"Exists:  .claude/CLAUDE.md (skipped)")
+        print("Exists:  .claude/CLAUDE.md (skipped)")
 
-    print(f"\nReady! Run: security-scan .")
+    print("\nReady! Run: security-scan .")
 
 
 # ── Doctor command ───────────────────────────────────────────────────────────
@@ -102,7 +102,6 @@ def _init_command():
 def _doctor_command():
     """Validate environment setup."""
     root = Path(".").resolve()
-    ok = True
 
     # Config file
     from security_scanner.config import CONFIG_FILENAMES
