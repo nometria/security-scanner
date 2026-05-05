@@ -1,0 +1,291 @@
+{
+  "coverage": {
+    "total_web_cwes": 14,
+    "covered": 14,
+    "coverage_pct": 100.0
+  },
+  "scoring": {
+    "overall_youdens_j": 0.9167,
+    "avg_per_cwe_j": 0.9286,
+    "overall_tpr": 0.9167,
+    "overall_fpr": 0.0
+  },
+  "per_cwe": [
+    {
+      "cwe_id": 79,
+      "name": "Improper Neutralization of Input During Web Page Generation (XSS)",
+      "rank": 2,
+      "sec_rules": [
+        "SEC-013"
+      ],
+      "tp": 2,
+      "fn": 0,
+      "tn": 1,
+      "fp": 0,
+      "tpr": 1.0,
+      "fpr": 0.0,
+      "youdens_j": 1.0
+    },
+    {
+      "cwe_id": 89,
+      "name": "Improper Neutralization of Special Elements used in an SQL Command (SQL Injection)",
+      "rank": 3,
+      "sec_rules": [
+        "SEC-004"
+      ],
+      "tp": 2,
+      "fn": 0,
+      "tn": 1,
+      "fp": 0,
+      "tpr": 1.0,
+      "fpr": 0.0,
+      "youdens_j": 1.0
+    },
+    {
+      "cwe_id": 78,
+      "name": "Improper Neutralization of Special Elements used in an OS Command (OS Command Injection)",
+      "rank": 5,
+      "sec_rules": [
+        "SEC-003"
+      ],
+      "tp": 1,
+      "fn": 0,
+      "tn": 1,
+      "fp": 0,
+      "tpr": 1.0,
+      "fpr": 0.0,
+      "youdens_j": 1.0
+    },
+    {
+      "cwe_id": 22,
+      "name": "Improper Limitation of a Pathname to a Restricted Directory (Path Traversal)",
+      "rank": 8,
+      "sec_rules": [
+        "SEC-014"
+      ],
+      "tp": 1,
+      "fn": 0,
+      "tn": 1,
+      "fp": 0,
+      "tpr": 1.0,
+      "fpr": 0.0,
+      "youdens_j": 1.0
+    },
+    {
+      "cwe_id": 352,
+      "name": "Cross-Site Request Forgery (CSRF)",
+      "rank": 9,
+      "sec_rules": [
+        "SEC-017"
+      ],
+      "tp": 3,
+      "fn": 0,
+      "tn": 1,
+      "fp": 0,
+      "tpr": 1.0,
+      "fpr": 0.0,
+      "youdens_j": 1.0
+    },
+    {
+      "cwe_id": 434,
+      "name": "Unrestricted Upload of File with Dangerous Type",
+      "rank": 10,
+      "sec_rules": [
+        "SEC-019"
+      ],
+      "tp": 2,
+      "fn": 0,
+      "tn": 1,
+      "fp": 0,
+      "tpr": 1.0,
+      "fpr": 0.0,
+      "youdens_j": 1.0
+    },
+    {
+      "cwe_id": 862,
+      "name": "Missing Authorization",
+      "rank": 11,
+      "sec_rules": [
+        "SEC-005"
+      ],
+      "tp": 1,
+      "fn": 0,
+      "tn": 1,
+      "fp": 0,
+      "tpr": 1.0,
+      "fpr": 0.0,
+      "youdens_j": 1.0
+    },
+    {
+      "cwe_id": 94,
+      "name": "Improper Control of Generation of Code (Code Injection)",
+      "rank": 12,
+      "sec_rules": [
+        "SEC-003"
+      ],
+      "tp": 1,
+      "fn": 1,
+      "tn": 0,
+      "fp": 0,
+      "tpr": 0.5,
+      "fpr": 0.0,
+      "youdens_j": 0.5
+    },
+    {
+      "cwe_id": 287,
+      "name": "Improper Authentication",
+      "rank": 13,
+      "sec_rules": [
+        "SEC-005",
+        "SEC-008"
+      ],
+      "tp": 1,
+      "fn": 0,
+      "tn": 1,
+      "fp": 0,
+      "tpr": 1.0,
+      "fpr": 0.0,
+      "youdens_j": 1.0
+    },
+    {
+      "cwe_id": 502,
+      "name": "Deserialization of Untrusted Data",
+      "rank": 15,
+      "sec_rules": [
+        "SEC-018"
+      ],
+      "tp": 3,
+      "fn": 0,
+      "tn": 2,
+      "fp": 0,
+      "tpr": 1.0,
+      "fpr": 0.0,
+      "youdens_j": 1.0
+    },
+    {
+      "cwe_id": 798,
+      "name": "Use of Hard-coded Credentials",
+      "rank": 16,
+      "sec_rules": [
+        "SEC-001"
+      ],
+      "tp": 1,
+      "fn": 1,
+      "tn": 1,
+      "fp": 0,
+      "tpr": 0.5,
+      "fpr": 0.0,
+      "youdens_j": 0.5
+    },
+    {
+      "cwe_id": 200,
+      "name": "Exposure of Sensitive Information to an Unauthorized Actor",
+      "rank": 17,
+      "sec_rules": [
+        "SEC-010",
+        "SEC-011"
+      ],
+      "tp": 2,
+      "fn": 0,
+      "tn": 1,
+      "fp": 0,
+      "tpr": 1.0,
+      "fpr": 0.0,
+      "youdens_j": 1.0
+    },
+    {
+      "cwe_id": 306,
+      "name": "Missing Authentication for Critical Function",
+      "rank": 18,
+      "sec_rules": [
+        "SEC-008"
+      ],
+      "tp": 1,
+      "fn": 0,
+      "tn": 0,
+      "fp": 0,
+      "tpr": 1.0,
+      "fpr": 0.0,
+      "youdens_j": 1.0
+    },
+    {
+      "cwe_id": 918,
+      "name": "Server-Side Request Forgery (SSRF)",
+      "rank": 19,
+      "sec_rules": [
+        "SEC-015"
+      ],
+      "tp": 1,
+      "fn": 0,
+      "tn": 1,
+      "fp": 0,
+      "tpr": 1.0,
+      "fpr": 0.0,
+      "youdens_j": 1.0
+    }
+  ],
+  "sec_to_cwe": {
+    "SEC-001": [
+      798
+    ],
+    "SEC-002": [
+      538
+    ],
+    "SEC-003": [
+      94,
+      78
+    ],
+    "SEC-004": [
+      89
+    ],
+    "SEC-005": [
+      862,
+      287
+    ],
+    "SEC-006": [
+      942
+    ],
+    "SEC-007": [
+      319
+    ],
+    "SEC-008": [
+      306,
+      287
+    ],
+    "SEC-009": [
+      922
+    ],
+    "SEC-010": [
+      200,
+      532
+    ],
+    "SEC-011": [
+      200
+    ],
+    "SEC-012": [
+      427
+    ],
+    "SEC-013": [
+      79
+    ],
+    "SEC-014": [
+      22
+    ],
+    "SEC-015": [
+      918
+    ],
+    "SEC-016": [
+      943
+    ],
+    "SEC-017": [
+      352
+    ],
+    "SEC-018": [
+      502
+    ],
+    "SEC-019": [
+      434
+    ]
+  },
+  "benchmark_time_sec": 0.05
+}

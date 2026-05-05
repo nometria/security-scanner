@@ -1,0 +1,163 @@
+{
+  "overall_detection_rate": 100.0,
+  "total_vulnerabilities": 55,
+  "total_detected": 55,
+  "total_missed": 0,
+  "false_positives": 0,
+  "scan_speed_files_per_sec": 3601,
+  "categories": [
+    {
+      "name": "Hardcoded Secrets",
+      "owasp": "A07:2021",
+      "total": 10,
+      "detected": 10,
+      "rate": 100.0,
+      "missed": [],
+      "false_positives": 0
+    },
+    {
+      "name": "SQL Injection",
+      "owasp": "A03:2021",
+      "total": 5,
+      "detected": 5,
+      "rate": 100.0,
+      "missed": [],
+      "false_positives": 0
+    },
+    {
+      "name": "SQL Injection (Python)",
+      "owasp": "A03:2021",
+      "total": 2,
+      "detected": 2,
+      "rate": 100.0,
+      "missed": [],
+      "false_positives": 0
+    },
+    {
+      "name": "XSS / DOM Injection",
+      "owasp": "A03:2021",
+      "total": 6,
+      "detected": 6,
+      "rate": 100.0,
+      "missed": [],
+      "false_positives": 0
+    },
+    {
+      "name": "CORS Misconfiguration",
+      "owasp": "A05:2021",
+      "total": 3,
+      "detected": 3,
+      "rate": 100.0,
+      "missed": [],
+      "false_positives": 0
+    },
+    {
+      "name": "Missing Auth (Express)",
+      "owasp": "A07:2021",
+      "total": 5,
+      "detected": 5,
+      "rate": 100.0,
+      "missed": [],
+      "false_positives": 0
+    },
+    {
+      "name": "Missing Auth (FastAPI)",
+      "owasp": "A07:2021",
+      "total": 2,
+      "detected": 2,
+      "rate": 100.0,
+      "missed": [],
+      "false_positives": 0
+    },
+    {
+      "name": "Exposed Admin Routes",
+      "owasp": "A01:2021",
+      "total": 2,
+      "detected": 2,
+      "rate": 100.0,
+      "missed": [],
+      "false_positives": 0
+    },
+    {
+      "name": "eval/exec Injection",
+      "owasp": "A03:2021",
+      "total": 4,
+      "detected": 4,
+      "rate": 100.0,
+      "missed": [],
+      "false_positives": 0
+    },
+    {
+      "name": "Insecure Token Storage",
+      "owasp": "A07:2021",
+      "total": 3,
+      "detected": 3,
+      "rate": 100.0,
+      "missed": [],
+      "false_positives": 0
+    },
+    {
+      "name": "Insecure Transport",
+      "owasp": "A02:2021",
+      "total": 3,
+      "detected": 3,
+      "rate": 100.0,
+      "missed": [],
+      "false_positives": 0
+    },
+    {
+      "name": "Env Variable Leakage",
+      "owasp": "A09:2021",
+      "total": 3,
+      "detected": 3,
+      "rate": 100.0,
+      "missed": [],
+      "false_positives": 0
+    },
+    {
+      "name": "Supabase Service Key Client-Side",
+      "owasp": "A01:2021",
+      "total": 2,
+      "detected": 2,
+      "rate": 100.0,
+      "missed": [],
+      "false_positives": 0
+    },
+    {
+      "name": "Committed .env File",
+      "owasp": "A05:2021",
+      "total": 1,
+      "detected": 1,
+      "rate": 100.0,
+      "missed": [],
+      "false_positives": 0
+    },
+    {
+      "name": "Path Traversal / SSRF",
+      "owasp": "A01:2021 / A10:2021",
+      "total": 3,
+      "detected": 3,
+      "rate": 100.0,
+      "missed": [],
+      "false_positives": 0
+    },
+    {
+      "name": "NoSQL Injection",
+      "owasp": "A03:2021",
+      "total": 1,
+      "detected": 1,
+      "rate": 100.0,
+      "missed": [],
+      "false_positives": 0
+    },
+    {
+      "name": "Clean Code (False Positive Test)",
+      "owasp": "N/A",
+      "total": 0,
+      "detected": 0,
+      "rate": null,
+      "missed": [],
+      "false_positives": 0
+    }
+  ]
+}
