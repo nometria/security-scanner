@@ -195,17 +195,48 @@ def check_eval_exec(path: Path, rel: str, lines: List[str]) -> List[Finding]:
 
 
 def check_sql_injection(path: Path, rel: str, lines: List[str]) -> List[Finding]:
-    """SEC-004: SQL injection risk — string interpolation in queries."""
+    """SEC-004: SQL injection risk — string interpolation in actual SQL queries.
+
+    To avoid false positives on JSX template literals and English text, require
+    BOTH a SQL keyword AND a SQL clause keyword (FROM / INTO / WHERE / SET / VALUES)
+    in the same string, OR a known query-execution call site.
+    """
     findings = []
-    sql_pattern = re.compile(
-        r'(SELECT|INSERT|UPDATE|DELETE|DROP|TRUNCATE).*\$\{|'
-        r'(SELECT|INSERT|UPDATE|DELETE).*\+\s*\w|'
-        r'f["\'].*SELECT.*{|'
-        r'execute\(["\'].*\%s',
+    # Skip JSX/TSX entirely — virtually all template literals there are UI text.
+    ext = path.suffix.lower()
+    if ext in {".jsx", ".tsx"}:
+        return findings
+
+    # Match `${...}` or string concatenation INSIDE a quoted/template string that
+    # starts with a SQL keyword AND contains a SQL clause keyword.
+    sql_in_template = re.compile(
+        r"`[^`]*\b(SELECT|INSERT|UPDATE|DELETE|DROP|TRUNCATE|ALTER|CREATE)\b[^`]*\b(FROM|INTO|WHERE|SET|VALUES|TABLE|JOIN)\b[^`]*\$\{",
         re.IGNORECASE,
     )
+    sql_in_string_concat = re.compile(
+        r"""['"][^'"]*\b(SELECT|INSERT|UPDATE|DELETE)\b[^'"]*\b(FROM|INTO|WHERE|SET|VALUES)\b[^'"]*['"]\s*\+\s*\w""",
+        re.IGNORECASE,
+    )
+    # Python f-string SQL
+    py_fstring_sql = re.compile(
+        r"""f['"][^'"]*\b(SELECT|INSERT|UPDATE|DELETE)\b[^'"]*\b(FROM|INTO|WHERE|SET|VALUES)\b[^'"]*\{""",
+        re.IGNORECASE,
+    )
+    # Direct unsafe execute() with %s
+    py_execute_unsafe = re.compile(r"\.execute\s*\(\s*['\"][^'\"]*%s", re.IGNORECASE)
+    # Query method calls like db.query(`... ${x} ...`) — broader catch even without
+    # FROM/WHERE keywords, since the call name confirms intent.
+    query_call = re.compile(
+        r"\.(query|raw|exec|execute|prepare)\s*\(\s*`[^`]*\$\{",
+        re.IGNORECASE,
+    )
+
     for i, line in enumerate(lines, 1):
-        if sql_pattern.search(line):
+        if (sql_in_template.search(line)
+            or sql_in_string_concat.search(line)
+            or py_fstring_sql.search(line)
+            or py_execute_unsafe.search(line)
+            or query_call.search(line)):
             findings.append(Finding(
                 rule_id="SEC-004", severity=HIGH,
                 file=rel, line=i,
