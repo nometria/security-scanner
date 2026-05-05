@@ -92,7 +92,8 @@ SECRET_PATTERNS = [
     (r'sk-[A-Za-z0-9]{48}', "OpenAI API key"),
     # Anthropic
     (r'sk-ant-[A-Za-z0-9\-_]{93}', "Anthropic API key"),
-    # Generic password
+    # Generic password — matches `password=`, `db_password=`, `defaultPassword=`, etc.
+    # FPs like `decryptedPassword: "••••"` are handled by the bullet/mask placeholder filter below.
     (r'(?i)(password|passwd|pwd)\s*[=:]\s*["\']([^\s"\']{8,})["\']', "Hardcoded password"),
 ]
 
@@ -147,6 +148,10 @@ def check_secrets(path: Path, rel: str, lines: List[str]) -> List[Finding]:
             if any(x in value.lower() for x in ["your_", "xxx", "placeholder", "changeme",
                                                   "example", "...", "test", "dummy", "sample",
                                                   "fake", "mock"]):
+                continue
+            # Skip UI mask placeholders: "••••••••", "********", "________"
+            inner = value
+            if any(c * 4 in inner for c in ("•", "*", "_", "·", "●", "○", "◯", "■", "□", "x", "X")):
                 continue
             findings.append(Finding(
                 rule_id="SEC-001", severity=CRITICAL,
@@ -571,7 +576,12 @@ def check_dependency_confusion(path: Path, rel: str, project_root: Path) -> List
 
 
 def check_xss(path: Path, rel: str, lines: List[str]) -> List[Finding]:
-    """SEC-013: XSS risk — innerHTML, document.write, dangerouslySetInnerHTML, etc."""
+    """SEC-013: XSS risk — innerHTML, document.write, dangerouslySetInnerHTML, etc.
+
+    Skips:
+      - `<style dangerouslySetInnerHTML>` — CSS-only, common shadcn/chart pattern
+      - `printWindow.document.write` — controlled print preview windows
+    """
     findings = []
     if path.suffix not in (".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"):
         return []
@@ -586,8 +596,20 @@ def check_xss(path: Path, rel: str, lines: List[str]) -> List[Finding]:
         stripped = line.strip()
         if stripped.startswith("//") or stripped.startswith("*"):
             continue
+
+        # Look back/forward a few lines for context-based skips
+        prev_line = lines[i-2].strip() if i >= 2 else ""
+        next_line = lines[i].strip() if i < len(lines) else ""
+        context = (prev_line + "\n" + stripped + "\n" + next_line).lower()
+
         for pattern, message in xss_patterns:
             if re.search(pattern, line):
+                # Skip <style dangerouslySetInnerHTML> — CSS-only context, common shadcn
+                if "dangerouslysetinnerhtml" in stripped.lower() and "<style" in context:
+                    break
+                # Skip printWindow.document.write — controlled print preview
+                if "document.write" in stripped and "printwindow" in stripped.lower():
+                    break
                 findings.append(Finding(
                     rule_id="SEC-013", severity=MEDIUM,
                     file=rel, line=i,
@@ -665,42 +687,83 @@ def check_path_traversal(path: Path, rel: str, lines: List[str]) -> List[Finding
 
 
 def check_ssrf_redirect(path: Path, rel: str, lines: List[str]) -> List[Finding]:
-    """SEC-015: SSRF / Open redirect — user-controlled URLs in fetch, redirect, etc."""
+    """SEC-015: SSRF / Open redirect — USER-CONTROLLED URLs in fetch/redirect.
+
+    To avoid flagging every internal `fetch(url, ...)`, this rule only fires when:
+      (a) URL parameter is request data directly (req.body/query/params), OR
+      (b) URL parameter is a variable that was assigned from request data
+          earlier in the file (cross-line taint tracking).
+    """
     findings = []
     if path.suffix not in (".js", ".ts", ".mjs", ".cjs", ".py"):
         return []
-    ssrf_patterns = [
-        (r'(?:fetch|axios\.get|axios\.post|http\.get|https\.get|request)\s*\(\s*(?:req\.|params|query)', "Server-Side Request Forgery — fetching user-supplied URL"),
-        (r'(?:fetch|axios\.get|axios\.post|http\.get|https\.get|request)\s*\(\s*(?:url|target|endpoint)\b', "Potential SSRF — fetching from variable URL (verify it is validated)"),
-    ]
-    redirect_patterns = [
-        (r'(?:res\.redirect|redirect)\s*\(\s*(?:req\.|params|query)', "Open redirect — redirecting to user-supplied URL"),
-        (r'(?:res\.redirect|redirect)\s*\(\s*(?:url|target|next|returnUrl|return_url|callback)\b', "Potential open redirect — redirecting to variable URL (verify validation)"),
-    ]
+
+    # Pass 1: collect variables tainted from request data
+    tainted_vars: set = set()
+    js_assign_re = re.compile(
+        r"(?:const|let|var)\s+(?:\{[^}]*\b([A-Za-z_$][\w$]*)\b[^}]*\}|([A-Za-z_$][\w$]*))\s*=\s*"
+        r"(?:req\.body|req\.query|req\.params|request\.json|request\.form|request\.args|request\.values)"
+    )
+    py_assign_re = re.compile(
+        r"^\s*([A-Za-z_][\w]*)\s*=\s*"
+        r"(?:request\.json|request\.form|request\.args|request\.values|request\.GET|request\.POST)"
+    )
+    for line in lines:
+        for m in js_assign_re.finditer(line):
+            name = m.group(1) or m.group(2)
+            if name:
+                tainted_vars.add(name)
+        m = py_assign_re.match(line)
+        if m:
+            tainted_vars.add(m.group(1))
+
+    # Patterns: (regex, message, severity)
+    direct_ssrf_re = re.compile(
+        r'(?:fetch|axios\.get|axios\.post|http\.get|https\.get|requests?\.get|requests?\.post)\s*\(\s*'
+        r'(?:req\.body|req\.query|req\.params|request\.json|request\.form|request\.args|request\.values)',
+        re.I,
+    )
+    direct_redirect_re = re.compile(
+        r'(?:res\.redirect|response\.redirect|redirect)\s*\(\s*'
+        r'(?:req\.body|req\.query|req\.params|request\.json|request\.form|request\.args|request\.values)',
+        re.I,
+    )
+    var_ssrf_re = None
+    var_redirect_re = None
+    if tainted_vars:
+        names = "|".join(re.escape(n) for n in tainted_vars)
+        var_ssrf_re = re.compile(
+            r'(?:fetch|axios\.get|axios\.post|http\.get|https\.get|requests?\.get|requests?\.post)\s*\(\s*'
+            r'(?:' + names + r')\b',
+            re.I,
+        )
+        var_redirect_re = re.compile(
+            r'(?:res\.redirect|response\.redirect|redirect)\s*\(\s*'
+            r'(?:' + names + r')\b',
+            re.I,
+        )
+
     for i, line in enumerate(lines, 1):
         stripped = line.strip()
-        if stripped.startswith("//") or stripped.startswith("#"):
+        if stripped.startswith("//") or stripped.startswith("#") or stripped.startswith("*"):
             continue
-        for pattern, message in ssrf_patterns:
-            if re.search(pattern, line, re.I):
-                findings.append(Finding(
-                    rule_id="SEC-015", severity=HIGH,
-                    file=rel, line=i,
-                    message=message,
-                    snippet=stripped[:80],
-                    fix="Validate URLs against an allowlist of trusted domains. Never fetch arbitrary user-supplied URLs.",
-                ))
-                break
-        for pattern, message in redirect_patterns:
-            if re.search(pattern, line, re.I):
-                findings.append(Finding(
-                    rule_id="SEC-015", severity=MEDIUM,
-                    file=rel, line=i,
-                    message=message,
-                    snippet=stripped[:80],
-                    fix="Validate redirect targets against an allowlist. Use relative paths or domain-checked URLs.",
-                ))
-                break
+        if direct_ssrf_re.search(line) or (var_ssrf_re and var_ssrf_re.search(line)):
+            findings.append(Finding(
+                rule_id="SEC-015", severity=HIGH,
+                file=rel, line=i,
+                message="SSRF — fetching user-supplied URL",
+                snippet=stripped[:80],
+                fix="Validate URLs against an allowlist of trusted domains. Never fetch arbitrary user-supplied URLs.",
+            ))
+            continue
+        if direct_redirect_re.search(line) or (var_redirect_re and var_redirect_re.search(line)):
+            findings.append(Finding(
+                rule_id="SEC-015", severity=MEDIUM,
+                file=rel, line=i,
+                message="Open redirect — redirecting to user-supplied URL",
+                snippet=stripped[:80],
+                fix="Validate redirect targets against an allowlist. Use relative paths or domain-checked URLs.",
+            ))
     return findings
 
 
