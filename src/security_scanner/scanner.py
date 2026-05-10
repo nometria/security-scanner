@@ -92,7 +92,8 @@ SECRET_PATTERNS = [
     (r'sk-[A-Za-z0-9]{48}', "OpenAI API key"),
     # Anthropic
     (r'sk-ant-[A-Za-z0-9\-_]{93}', "Anthropic API key"),
-    # Generic password
+    # Generic password — matches `password=`, `db_password=`, `defaultPassword=`, etc.
+    # FPs like `decryptedPassword: "••••"` are handled by the bullet/mask placeholder filter below.
     (r'(?i)(password|passwd|pwd)\s*[=:]\s*["\']([^\s"\']{8,})["\']', "Hardcoded password"),
 ]
 
@@ -148,6 +149,10 @@ def check_secrets(path: Path, rel: str, lines: List[str]) -> List[Finding]:
                                                   "example", "...", "test", "dummy", "sample",
                                                   "fake", "mock"]):
                 continue
+            # Skip UI mask placeholders: "••••••••", "********", "________"
+            inner = value
+            if any(c * 4 in inner for c in ("•", "*", "_", "·", "●", "○", "◯", "■", "□", "x", "X")):
+                continue
             findings.append(Finding(
                 rule_id="SEC-001", severity=CRITICAL,
                 file=rel, line=lineno, message=f"{label} detected",
@@ -179,33 +184,96 @@ def check_env_committed(path: Path, rel: str, project_root: Path) -> List[Findin
 
 
 def check_eval_exec(path: Path, rel: str, lines: List[str]) -> List[Finding]:
-    """SEC-003: Dangerous eval() / exec() usage."""
+    """SEC-003: Dangerous eval() / exec() / new Function() usage.
+
+    Skips method calls like `regex.exec(str)`, `child_process.exec(cmd)` (the
+    latter is a separate concern — command injection — handled elsewhere).
+    Only matches global `eval(`, top-level `exec(` (Python), and `new Function(`.
+    """
     findings = []
+    is_python = path.suffix == ".py"
     for i, line in enumerate(lines, 1):
-        if re.search(r'\beval\s*\(', line) or re.search(r'\bexec\s*\(', line):
-            if not line.strip().startswith("//") and not line.strip().startswith("#"):
-                findings.append(Finding(
-                    rule_id="SEC-003", severity=HIGH,
-                    file=rel, line=i,
-                    message="Dangerous eval/exec usage — potential code injection",
-                    snippet=line.strip()[:80],
-                    fix="Avoid eval/exec with user input. Use JSON.parse() or safe alternatives.",
-                ))
+        stripped = line.strip()
+        if stripped.startswith("//") or stripped.startswith("#") or stripped.startswith("*"):
+            continue
+
+        # Global eval(...) — must NOT be preceded by `.` (e.g., not `obj.eval(`)
+        if re.search(r"(?<![.\w])eval\s*\(", line):
+            findings.append(Finding(
+                rule_id="SEC-003", severity=HIGH,
+                file=rel, line=i,
+                message="Dangerous eval() — potential code injection",
+                snippet=stripped[:80],
+                fix="Avoid eval(). Use JSON.parse() or safe alternatives.",
+            ))
+            continue
+
+        # `new Function(string)` — equivalent to eval
+        if re.search(r"new\s+Function\s*\(", line):
+            findings.append(Finding(
+                rule_id="SEC-003", severity=HIGH,
+                file=rel, line=i,
+                message="new Function() — equivalent to eval, potential code injection",
+                snippet=stripped[:80],
+                fix="Avoid new Function() with dynamic strings.",
+            ))
+            continue
+
+        # Python-only: top-level exec(...) — must NOT be preceded by `.`
+        if is_python and re.search(r"(?<![.\w])exec\s*\(", line):
+            findings.append(Finding(
+                rule_id="SEC-003", severity=HIGH,
+                file=rel, line=i,
+                message="Dangerous exec() — potential code injection",
+                snippet=stripped[:80],
+                fix="Avoid exec() with user input.",
+            ))
     return findings
 
 
 def check_sql_injection(path: Path, rel: str, lines: List[str]) -> List[Finding]:
-    """SEC-004: SQL injection risk — string interpolation in queries."""
+    """SEC-004: SQL injection risk — string interpolation in actual SQL queries.
+
+    To avoid false positives on JSX template literals and English text, require
+    BOTH a SQL keyword AND a SQL clause keyword (FROM / INTO / WHERE / SET / VALUES)
+    in the same string, OR a known query-execution call site.
+    """
     findings = []
-    sql_pattern = re.compile(
-        r'(SELECT|INSERT|UPDATE|DELETE|DROP|TRUNCATE).*\$\{|'
-        r'(SELECT|INSERT|UPDATE|DELETE).*\+\s*\w|'
-        r'f["\'].*SELECT.*{|'
-        r'execute\(["\'].*\%s',
+    # Skip JSX/TSX entirely — virtually all template literals there are UI text.
+    ext = path.suffix.lower()
+    if ext in {".jsx", ".tsx"}:
+        return findings
+
+    # Match `${...}` or string concatenation INSIDE a quoted/template string that
+    # starts with a SQL keyword AND contains a SQL clause keyword.
+    sql_in_template = re.compile(
+        r"`[^`]*\b(SELECT|INSERT|UPDATE|DELETE|DROP|TRUNCATE|ALTER|CREATE)\b[^`]*\b(FROM|INTO|WHERE|SET|VALUES|TABLE|JOIN)\b[^`]*\$\{",
         re.IGNORECASE,
     )
+    sql_in_string_concat = re.compile(
+        r"""['"][^'"]*\b(SELECT|INSERT|UPDATE|DELETE)\b[^'"]*\b(FROM|INTO|WHERE|SET|VALUES)\b[^'"]*['"]\s*\+\s*\w""",
+        re.IGNORECASE,
+    )
+    # Python f-string SQL
+    py_fstring_sql = re.compile(
+        r"""f['"][^'"]*\b(SELECT|INSERT|UPDATE|DELETE)\b[^'"]*\b(FROM|INTO|WHERE|SET|VALUES)\b[^'"]*\{""",
+        re.IGNORECASE,
+    )
+    # Direct unsafe execute() with %s
+    py_execute_unsafe = re.compile(r"\.execute\s*\(\s*['\"][^'\"]*%s", re.IGNORECASE)
+    # Query method calls like db.query(`... ${x} ...`) — broader catch even without
+    # FROM/WHERE keywords, since the call name confirms intent.
+    query_call = re.compile(
+        r"\.(query|raw|exec|execute|prepare)\s*\(\s*`[^`]*\$\{",
+        re.IGNORECASE,
+    )
+
     for i, line in enumerate(lines, 1):
-        if sql_pattern.search(line):
+        if (sql_in_template.search(line)
+            or sql_in_string_concat.search(line)
+            or py_fstring_sql.search(line)
+            or py_execute_unsafe.search(line)
+            or query_call.search(line)):
             findings.append(Finding(
                 rule_id="SEC-004", severity=HIGH,
                 file=rel, line=i,
@@ -232,26 +300,82 @@ def check_cors_wildcard(path: Path, rel: str, lines: List[str]) -> List[Finding]
 
 
 def check_http_hardcoded(path: Path, rel: str, lines: List[str]) -> List[Finding]:
-    """SEC-007: Hardcoded http:// URLs (not https) for external services."""
+    """SEC-007: Hardcoded http:// URLs (not https) for external services.
+
+    Excludes: localhost, XML/SVG namespace URIs, schema URIs, data: URLs,
+    and well-known standards URLs that are identifiers, not network endpoints.
+    """
+    # URL hosts that are XML/standards namespaces, not real network endpoints
+    NS_HOSTS = (
+        "www.w3.org",         # SVG, XML namespaces
+        "www.w3.org/2000/svg",
+        "schemas.xmlsoap.org",
+        "schemas.microsoft.com",
+        "schemas.openxmlformats.org",
+        "purl.org",
+        "ns.adobe.com",
+        "iptc.org",
+        "json-schema.org",
+        "tempuri.org",
+    )
     findings = []
     for i, line in enumerate(lines, 1):
-        if re.search(r'http://(?!localhost|127\.0\.0\.1|0\.0\.0\.0)', line):
-            if re.search(r'https?://[^\s\'"]{10,}', line):
-                findings.append(Finding(
-                    rule_id="SEC-007", severity=LOW,
-                    file=rel, line=i,
-                    message="HTTP (not HTTPS) URL — data sent in plaintext",
-                    snippet=line.strip()[:80],
-                    fix="Use HTTPS for all external URLs.",
-                ))
+        # Quick rejects
+        if "http://" not in line:
+            continue
+        # XML namespace attribute — never a network endpoint
+        if re.search(r"""xmlns(:\w+)?\s*=\s*['"]http://""", line):
+            continue
+        # Look for a real http URL not in the excluded namespace list
+        for m in re.finditer(r"http://([^\s'\"`<>)]+)", line):
+            host_path = m.group(1)
+            host_with_port = host_path.split("/")[0]
+            host = host_with_port.split(":")[0]
+            # Local hosts (with or without port)
+            if host in ("localhost", "127.0.0.1", "0.0.0.0", "::1"):
+                continue
+            # Private IP ranges (RFC 1918) — internal services
+            if (host.startswith("10.")
+                or host.startswith("192.168.")
+                or re.match(r"172\.(1[6-9]|2\d|3[01])\.", host)):
+                continue
+            # Standards/namespace URIs that look like URLs but are identifiers
+            if any(ns in host_path for ns in NS_HOSTS):
+                continue
+            # Variable interpolation like http://${HOST} — can't statically determine
+            if host.startswith("${") or host.startswith("{") or "$" in host_with_port:
+                continue
+            # Real http URL → flag (one finding per line)
+            findings.append(Finding(
+                rule_id="SEC-007", severity=LOW,
+                file=rel, line=i,
+                message="HTTP (not HTTPS) URL — data sent in plaintext",
+                snippet=line.strip()[:80],
+                fix="Use HTTPS for all external URLs.",
+            ))
+            break
     return findings
 
 
 def check_localstorage_auth(path: Path, rel: str, lines: List[str]) -> List[Finding]:
-    """SEC-009: localStorage used for auth tokens (XSS risk)."""
+    """SEC-009: localStorage used for AUTH tokens (XSS risk).
+
+    Tightened: must match auth-specific keywords in the storage key, not just
+    the generic word "session" (which catches analytics_session_id, roadmap_session_id,
+    survey_session, etc. — none of which are auth tokens).
+    """
+    # Match key strings containing auth-specific terms.
+    # Allow generic "session" only when paired with an auth indicator.
+    AUTH_KEY_RE = re.compile(
+        r"""localStorage\.set(?:Item)?\s*\(\s*['"`][^'"`]*"""
+        r"""(auth_?token|access_?token|refresh_?token|id_?token|"""
+        r"""bearer|jwt|api[_-]?key|api_secret|credential|"""
+        r"""user_?session|auth_?session|login_?session|sso_?session)""",
+        re.I,
+    )
     findings = []
     for i, line in enumerate(lines, 1):
-        if re.search(r'localStorage\.set(?:Item)?\s*\(.*(?:token|jwt|auth|session)', line, re.I):
+        if AUTH_KEY_RE.search(line):
             findings.append(Finding(
                 rule_id="SEC-009", severity=HIGH,
                 file=rel, line=i,
@@ -411,6 +535,23 @@ def check_dependency_confusion(path: Path, rel: str, project_root: Path) -> List
         "@rollup/", "@esbuild/", "@swc/", "@tailwindcss/", "@headlessui/",
         "@heroicons/", "@fortawesome/", "@fontsource/",
         "@nometria-ai/",
+        # Additional widely-used public scopes
+        "@hookform/", "@hello-pangea/", "@floating-ui/", "@react-aria/",
+        "@react-stately/", "@react-types/", "@dnd-kit/", "@tiptap/",
+        "@codemirror/", "@lezer/", "@uiw/", "@chakra-ui/", "@mantine/",
+        "@nextui-org/", "@ant-design/", "@formkit/", "@vue-flow/",
+        "@xyflow/", "@reactflow/", "@vis-network/", "@nivo/", "@visx/",
+        "@react-pdf/", "@react-spring/", "@react-three/", "@use-gesture/",
+        "@zag-js/", "@arkjs/", "@vanilla-extract/", "@unocss/", "@panda-css/",
+        "@base44/", "@builder.io/", "@uniformdev/", "@contentful/",
+        "@sanity/", "@strapi/", "@directus/", "@payloadcms/",
+        "@hashicorp/", "@datadog/", "@grafana/", "@opentelemetry/",
+        "@octokit/", "@slack/", "@notionhq/", "@linear/",
+        "@anthropic-ai/", "@openai/", "@huggingface/", "@cohere-ai/",
+        "@aws-cdk/", "@cdktf/", "@pulumi/",
+        "@tabler/", "@iconify/", "@phosphor-icons/", "@tabler/icons-react",
+        "@noble/", "@scure/", "@panva/",
+        "@floating-ui/", "@popperjs/",
     )
 
     # Check if .npmrc configures a private registry
@@ -435,7 +576,12 @@ def check_dependency_confusion(path: Path, rel: str, project_root: Path) -> List
 
 
 def check_xss(path: Path, rel: str, lines: List[str]) -> List[Finding]:
-    """SEC-013: XSS risk — innerHTML, document.write, dangerouslySetInnerHTML, etc."""
+    """SEC-013: XSS risk — innerHTML, document.write, dangerouslySetInnerHTML, etc.
+
+    Skips:
+      - `<style dangerouslySetInnerHTML>` — CSS-only, common shadcn/chart pattern
+      - `printWindow.document.write` — controlled print preview windows
+    """
     findings = []
     if path.suffix not in (".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"):
         return []
@@ -450,8 +596,20 @@ def check_xss(path: Path, rel: str, lines: List[str]) -> List[Finding]:
         stripped = line.strip()
         if stripped.startswith("//") or stripped.startswith("*"):
             continue
+
+        # Look back/forward a few lines for context-based skips
+        prev_line = lines[i-2].strip() if i >= 2 else ""
+        next_line = lines[i].strip() if i < len(lines) else ""
+        context = (prev_line + "\n" + stripped + "\n" + next_line).lower()
+
         for pattern, message in xss_patterns:
             if re.search(pattern, line):
+                # Skip <style dangerouslySetInnerHTML> — CSS-only context, common shadcn
+                if "dangerouslysetinnerhtml" in stripped.lower() and "<style" in context:
+                    break
+                # Skip printWindow.document.write — controlled print preview
+                if "document.write" in stripped and "printwindow" in stripped.lower():
+                    break
                 findings.append(Finding(
                     rule_id="SEC-013", severity=MEDIUM,
                     file=rel, line=i,
@@ -464,68 +622,148 @@ def check_xss(path: Path, rel: str, lines: List[str]) -> List[Finding]:
 
 
 def check_path_traversal(path: Path, rel: str, lines: List[str]) -> List[Finding]:
-    """SEC-014: Path traversal — unvalidated user input in file operations."""
+    """SEC-014: Path traversal — unvalidated USER INPUT in file operations.
+
+    Skips build/dev scripts (where filePath comes from glob results, not user
+    input). Flags file ops fed by:
+      (a) request data directly on the same line, OR
+      (b) a variable that was earlier assigned from request data in the file.
+    """
     findings = []
     if path.suffix not in (".js", ".ts", ".mjs", ".cjs", ".py"):
         return []
-    pt_patterns = [
-        (r'(?:sendFile|readFile|readFileSync|createReadStream)\s*\(\s*(?:req\.|params|query)', "File operation with unsanitised user input — path traversal risk"),
-        (r'(?:sendFile|readFile|readFileSync|createReadStream)\s*\(\s*(?:filePath|file_path|filepath)', "File operation with variable path — verify input is validated"),
-    ]
+    # Skip build / dev tooling scripts — file paths come from glob, not requests
+    rel_norm = rel.replace("\\", "/")
+    if (rel_norm.startswith("scripts/") or "/scripts/" in rel_norm
+        or rel_norm.startswith("build/") or "/build/" in rel_norm
+        or rel_norm.startswith("tools/") or "/tools/" in rel_norm
+        or rel_norm.startswith("bin/") or "/bin/" in rel_norm):
+        return []
+
+    # Pass 1: collect variable names assigned from request data
+    tainted_vars: set = set()
+    assign_re = re.compile(
+        r"(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*"
+        r"(?:req\.body|req\.query|req\.params|request\.json|request\.form|request\.args|request\.values)"
+    )
+    py_assign_re = re.compile(
+        r"^\s*([A-Za-z_][\w]*)\s*=\s*"
+        r"(?:request\.json|request\.form|request\.args|request\.values|request\.files)"
+    )
+    for line in lines:
+        m = assign_re.search(line) or py_assign_re.search(line)
+        if m:
+            tainted_vars.add(m.group(1))
+
+    # Pass 2: file ops fed by request data directly
+    direct_pattern = re.compile(
+        r'(?:sendFile|readFile|readFileSync|createReadStream|open|unlink)\s*\('
+        r'\s*(?:req\.body|req\.query|req\.params|request\.json|request\.form|request\.args|request\.values)',
+        re.I,
+    )
+    # Build var-based pattern only when we have tainted vars
+    var_pattern = None
+    if tainted_vars:
+        names = "|".join(re.escape(n) for n in tainted_vars)
+        var_pattern = re.compile(
+            r'(?:sendFile|readFile|readFileSync|createReadStream|open|unlink)\s*\('
+            r'\s*(?:' + names + r')\b',
+            re.I,
+        )
+
     for i, line in enumerate(lines, 1):
         stripped = line.strip()
-        if stripped.startswith("//") or stripped.startswith("#"):
+        if stripped.startswith("//") or stripped.startswith("#") or stripped.startswith("*"):
             continue
-        for pattern, message in pt_patterns:
-            if re.search(pattern, line, re.I):
-                findings.append(Finding(
-                    rule_id="SEC-014", severity=HIGH,
-                    file=rel, line=i,
-                    message=message,
-                    snippet=stripped[:80],
-                    fix="Validate and sanitise file paths. Use path.resolve() and check against a whitelist or base directory.",
-                ))
-                break
+        if direct_pattern.search(line) or (var_pattern and var_pattern.search(line)):
+            findings.append(Finding(
+                rule_id="SEC-014", severity=HIGH,
+                file=rel, line=i,
+                message="File operation with unsanitised user input — path traversal risk",
+                snippet=stripped[:80],
+                fix="Validate paths. Use path.resolve() and check against an allow-list or base directory.",
+            ))
     return findings
 
 
 def check_ssrf_redirect(path: Path, rel: str, lines: List[str]) -> List[Finding]:
-    """SEC-015: SSRF / Open redirect — user-controlled URLs in fetch, redirect, etc."""
+    """SEC-015: SSRF / Open redirect — USER-CONTROLLED URLs in fetch/redirect.
+
+    To avoid flagging every internal `fetch(url, ...)`, this rule only fires when:
+      (a) URL parameter is request data directly (req.body/query/params), OR
+      (b) URL parameter is a variable that was assigned from request data
+          earlier in the file (cross-line taint tracking).
+    """
     findings = []
     if path.suffix not in (".js", ".ts", ".mjs", ".cjs", ".py"):
         return []
-    ssrf_patterns = [
-        (r'(?:fetch|axios\.get|axios\.post|http\.get|https\.get|request)\s*\(\s*(?:req\.|params|query)', "Server-Side Request Forgery — fetching user-supplied URL"),
-        (r'(?:fetch|axios\.get|axios\.post|http\.get|https\.get|request)\s*\(\s*(?:url|target|endpoint)\b', "Potential SSRF — fetching from variable URL (verify it is validated)"),
-    ]
-    redirect_patterns = [
-        (r'(?:res\.redirect|redirect)\s*\(\s*(?:req\.|params|query)', "Open redirect — redirecting to user-supplied URL"),
-        (r'(?:res\.redirect|redirect)\s*\(\s*(?:url|target|next|returnUrl|return_url|callback)\b', "Potential open redirect — redirecting to variable URL (verify validation)"),
-    ]
+
+    # Pass 1: collect variables tainted from request data
+    tainted_vars: set = set()
+    js_assign_re = re.compile(
+        r"(?:const|let|var)\s+(?:\{[^}]*\b([A-Za-z_$][\w$]*)\b[^}]*\}|([A-Za-z_$][\w$]*))\s*=\s*"
+        r"(?:req\.body|req\.query|req\.params|request\.json|request\.form|request\.args|request\.values)"
+    )
+    py_assign_re = re.compile(
+        r"^\s*([A-Za-z_][\w]*)\s*=\s*"
+        r"(?:request\.json|request\.form|request\.args|request\.values|request\.GET|request\.POST)"
+    )
+    for line in lines:
+        for m in js_assign_re.finditer(line):
+            name = m.group(1) or m.group(2)
+            if name:
+                tainted_vars.add(name)
+        m = py_assign_re.match(line)
+        if m:
+            tainted_vars.add(m.group(1))
+
+    # Patterns: (regex, message, severity)
+    direct_ssrf_re = re.compile(
+        r'(?:fetch|axios\.get|axios\.post|http\.get|https\.get|requests?\.get|requests?\.post)\s*\(\s*'
+        r'(?:req\.body|req\.query|req\.params|request\.json|request\.form|request\.args|request\.values)',
+        re.I,
+    )
+    direct_redirect_re = re.compile(
+        r'(?:res\.redirect|response\.redirect|redirect)\s*\(\s*'
+        r'(?:req\.body|req\.query|req\.params|request\.json|request\.form|request\.args|request\.values)',
+        re.I,
+    )
+    var_ssrf_re = None
+    var_redirect_re = None
+    if tainted_vars:
+        names = "|".join(re.escape(n) for n in tainted_vars)
+        var_ssrf_re = re.compile(
+            r'(?:fetch|axios\.get|axios\.post|http\.get|https\.get|requests?\.get|requests?\.post)\s*\(\s*'
+            r'(?:' + names + r')\b',
+            re.I,
+        )
+        var_redirect_re = re.compile(
+            r'(?:res\.redirect|response\.redirect|redirect)\s*\(\s*'
+            r'(?:' + names + r')\b',
+            re.I,
+        )
+
     for i, line in enumerate(lines, 1):
         stripped = line.strip()
-        if stripped.startswith("//") or stripped.startswith("#"):
+        if stripped.startswith("//") or stripped.startswith("#") or stripped.startswith("*"):
             continue
-        for pattern, message in ssrf_patterns:
-            if re.search(pattern, line, re.I):
-                findings.append(Finding(
-                    rule_id="SEC-015", severity=HIGH,
-                    file=rel, line=i,
-                    message=message,
-                    snippet=stripped[:80],
-                    fix="Validate URLs against an allowlist of trusted domains. Never fetch arbitrary user-supplied URLs.",
-                ))
-                break
-        for pattern, message in redirect_patterns:
-            if re.search(pattern, line, re.I):
-                findings.append(Finding(
-                    rule_id="SEC-015", severity=MEDIUM,
-                    file=rel, line=i,
-                    message=message,
-                    snippet=stripped[:80],
-                    fix="Validate redirect targets against an allowlist. Use relative paths or domain-checked URLs.",
-                ))
-                break
+        if direct_ssrf_re.search(line) or (var_ssrf_re and var_ssrf_re.search(line)):
+            findings.append(Finding(
+                rule_id="SEC-015", severity=HIGH,
+                file=rel, line=i,
+                message="SSRF — fetching user-supplied URL",
+                snippet=stripped[:80],
+                fix="Validate URLs against an allowlist of trusted domains. Never fetch arbitrary user-supplied URLs.",
+            ))
+            continue
+        if direct_redirect_re.search(line) or (var_redirect_re and var_redirect_re.search(line)):
+            findings.append(Finding(
+                rule_id="SEC-015", severity=MEDIUM,
+                file=rel, line=i,
+                message="Open redirect — redirecting to user-supplied URL",
+                snippet=stripped[:80],
+                fix="Validate redirect targets against an allowlist. Use relative paths or domain-checked URLs.",
+            ))
     return findings
 
 
@@ -651,11 +889,13 @@ def check_unrestricted_upload(path: Path, rel: str, lines: List[str]) -> List[Fi
 
     upload_patterns = [
         # Multer without file filter
-        (r'multer\s*\(\s*\{[^}]*(?:dest|storage)\s*:', r'fileFilter', "Multer upload without fileFilter — unrestricted file types accepted"),
-        # Express file upload without extension check
-        (r'req\.files?\b', r'(?:mimetype|extension|ext|allowedTypes|fileFilter|whitelist)', "File upload handler without type validation"),
-        # Python Flask/FastAPI file upload without extension check
-        (r'(?:request\.files|UploadFile|FileStorage)', r'(?:allowed_extensions|ALLOWED_EXTENSIONS|content_type|secure_filename|filename\.endswith)', "File upload without extension/type validation"),
+        (r'\bmulter\s*\(\s*\{[^}]*(?:dest|storage)\s*:', r'fileFilter', "Multer upload without fileFilter — unrestricted file types accepted"),
+        # Express file upload (req.files / req.file with .mv() / .save() etc)
+        (r'\breq\.files?\.[\w$]+\.(?:mv|save|move|pipe)\s*\(', r'(?:mimetype|extension|allowedTypes|fileFilter|whitelist)', "File upload handler without type validation"),
+        # Python Flask file upload — only when used with .save() (not just any reference)
+        (r'\brequest\.files\b[^.]*?\.save\s*\(', r'(?:allowed_extensions|ALLOWED_EXTENSIONS|content_type|secure_filename|filename\.endswith)', "Flask file upload without extension/type validation"),
+        # FastAPI UploadFile — only as a route parameter type annotation
+        (r'(?:async\s+def|def)\s+\w+\s*\([^)]*:\s*UploadFile\b', r'(?:allowed_extensions|ALLOWED_EXTENSIONS|content_type|secure_filename|filename\.endswith|file\.content_type)', "FastAPI UploadFile without extension/type validation"),
     ]
     for upload_re, guard_re, message in upload_patterns:
         if re.search(upload_re, full_text, re.I):
