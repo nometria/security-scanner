@@ -15,9 +15,9 @@ Checks:
   SEC-011  Supabase service role key exposed client-side
   SEC-012  Dependency confusion risk (internal package names in package.json)
   SEC-013  XSS risk: innerHTML / document.write / dangerouslySetInnerHTML
-  SEC-014  Path traversal — unvalidated file paths in sendFile/readFile
-  SEC-015  SSRF / Open redirect — user-controlled URLs in fetch/redirect
-  SEC-016  NoSQL injection — unsanitised user input in MongoDB queries
+  SEC-014  Path traversal - unvalidated file paths in sendFile/readFile
+  SEC-015  SSRF / Open redirect - user-controlled URLs in fetch/redirect
+  SEC-016  NoSQL injection - unsanitised user input in MongoDB queries
   SEC-017  Missing CSRF protection on state-changing routes (CWE-352)
   SEC-018  Deserialization of untrusted data (CWE-502)
   SEC-019  Unrestricted file upload without type validation (CWE-434)
@@ -92,7 +92,7 @@ SECRET_PATTERNS = [
     (r'sk-[A-Za-z0-9]{48}', "OpenAI API key"),
     # Anthropic
     (r'sk-ant-[A-Za-z0-9\-_]{93}', "Anthropic API key"),
-    # Generic password — matches `password=`, `db_password=`, `defaultPassword=`, etc.
+    # Generic password - matches `password=`, `db_password=`, `defaultPassword=`, etc.
     # FPs like `decryptedPassword: "••••"` are handled by the bullet/mask placeholder filter below.
     (r'(?i)(password|passwd|pwd)\s*[=:]\s*["\']([^\s"\']{8,})["\']', "Hardcoded password"),
 ]
@@ -187,7 +187,7 @@ def check_eval_exec(path: Path, rel: str, lines: List[str]) -> List[Finding]:
     """SEC-003: Dangerous eval() / exec() / new Function() usage.
 
     Skips method calls like `regex.exec(str)`, `child_process.exec(cmd)` (the
-    latter is a separate concern — command injection — handled elsewhere).
+    latter is a separate concern - command injection - handled elsewhere).
     Only matches global `eval(`, top-level `exec(` (Python), and `new Function(`.
     """
     findings = []
@@ -197,34 +197,34 @@ def check_eval_exec(path: Path, rel: str, lines: List[str]) -> List[Finding]:
         if stripped.startswith("//") or stripped.startswith("#") or stripped.startswith("*"):
             continue
 
-        # Global eval(...) — must NOT be preceded by `.` (e.g., not `obj.eval(`)
+        # Global eval(...) - must NOT be preceded by `.` (e.g., not `obj.eval(`)
         if re.search(r"(?<![.\w])eval\s*\(", line):
             findings.append(Finding(
                 rule_id="SEC-003", severity=HIGH,
                 file=rel, line=i,
-                message="Dangerous eval() — potential code injection",
+                message="Dangerous eval() - potential code injection",
                 snippet=stripped[:80],
                 fix="Avoid eval(). Use JSON.parse() or safe alternatives.",
             ))
             continue
 
-        # `new Function(string)` — equivalent to eval
+        # `new Function(string)` - equivalent to eval
         if re.search(r"new\s+Function\s*\(", line):
             findings.append(Finding(
                 rule_id="SEC-003", severity=HIGH,
                 file=rel, line=i,
-                message="new Function() — equivalent to eval, potential code injection",
+                message="new Function() - equivalent to eval, potential code injection",
                 snippet=stripped[:80],
                 fix="Avoid new Function() with dynamic strings.",
             ))
             continue
 
-        # Python-only: top-level exec(...) — must NOT be preceded by `.`
+        # Python-only: top-level exec(...) - must NOT be preceded by `.`
         if is_python and re.search(r"(?<![.\w])exec\s*\(", line):
             findings.append(Finding(
                 rule_id="SEC-003", severity=HIGH,
                 file=rel, line=i,
-                message="Dangerous exec() — potential code injection",
+                message="Dangerous exec() - potential code injection",
                 snippet=stripped[:80],
                 fix="Avoid exec() with user input.",
             ))
@@ -232,14 +232,14 @@ def check_eval_exec(path: Path, rel: str, lines: List[str]) -> List[Finding]:
 
 
 def check_sql_injection(path: Path, rel: str, lines: List[str]) -> List[Finding]:
-    """SEC-004: SQL injection risk — string interpolation in actual SQL queries.
+    """SEC-004: SQL injection risk - string interpolation in actual SQL queries.
 
     To avoid false positives on JSX template literals and English text, require
     BOTH a SQL keyword AND a SQL clause keyword (FROM / INTO / WHERE / SET / VALUES)
     in the same string, OR a known query-execution call site.
     """
     findings = []
-    # Skip JSX/TSX entirely — virtually all template literals there are UI text.
+    # Skip JSX/TSX entirely - virtually all template literals there are UI text.
     ext = path.suffix.lower()
     if ext in {".jsx", ".tsx"}:
         return findings
@@ -261,7 +261,7 @@ def check_sql_injection(path: Path, rel: str, lines: List[str]) -> List[Finding]
     )
     # Direct unsafe execute() with %s
     py_execute_unsafe = re.compile(r"\.execute\s*\(\s*['\"][^'\"]*%s", re.IGNORECASE)
-    # Query method calls like db.query(`... ${x} ...`) — broader catch even without
+    # Query method calls like db.query(`... ${x} ...`) - broader catch even without
     # FROM/WHERE keywords, since the call name confirms intent.
     query_call = re.compile(
         r"\.(query|raw|exec|execute|prepare)\s*\(\s*`[^`]*\$\{",
@@ -277,7 +277,7 @@ def check_sql_injection(path: Path, rel: str, lines: List[str]) -> List[Finding]
             findings.append(Finding(
                 rule_id="SEC-004", severity=HIGH,
                 file=rel, line=i,
-                message="Potential SQL injection — string interpolation in query",
+                message="Potential SQL injection - string interpolation in query",
                 snippet=line.strip()[:80],
                 fix="Use parameterised queries: db.query('SELECT * FROM t WHERE id = $1', [id])",
             ))
@@ -292,7 +292,7 @@ def check_cors_wildcard(path: Path, rel: str, lines: List[str]) -> List[Finding]
             findings.append(Finding(
                 rule_id="SEC-006", severity=MEDIUM,
                 file=rel, line=i,
-                message="CORS wildcard (*) — allows any origin",
+                message="CORS wildcard (*) - allows any origin",
                 snippet=line.strip()[:80],
                 fix="Restrict to specific allowed origins: 'Access-Control-Allow-Origin': 'https://yourdomain.com'",
             ))
@@ -323,7 +323,7 @@ def check_http_hardcoded(path: Path, rel: str, lines: List[str]) -> List[Finding
         # Quick rejects
         if "http://" not in line:
             continue
-        # XML namespace attribute — never a network endpoint
+        # XML namespace attribute - never a network endpoint
         if re.search(r"""xmlns(:\w+)?\s*=\s*['"]http://""", line):
             continue
         # Look for a real http URL not in the excluded namespace list
@@ -334,7 +334,7 @@ def check_http_hardcoded(path: Path, rel: str, lines: List[str]) -> List[Finding
             # Local hosts (with or without port)
             if host in ("localhost", "127.0.0.1", "0.0.0.0", "::1"):
                 continue
-            # Private IP ranges (RFC 1918) — internal services
+            # Private IP ranges (RFC 1918) - internal services
             if (host.startswith("10.")
                 or host.startswith("192.168.")
                 or re.match(r"172\.(1[6-9]|2\d|3[01])\.", host)):
@@ -342,14 +342,14 @@ def check_http_hardcoded(path: Path, rel: str, lines: List[str]) -> List[Finding
             # Standards/namespace URIs that look like URLs but are identifiers
             if any(ns in host_path for ns in NS_HOSTS):
                 continue
-            # Variable interpolation like http://${HOST} — can't statically determine
+            # Variable interpolation like http://${HOST} - can't statically determine
             if host.startswith("${") or host.startswith("{") or "$" in host_with_port:
                 continue
             # Real http URL → flag (one finding per line)
             findings.append(Finding(
                 rule_id="SEC-007", severity=LOW,
                 file=rel, line=i,
-                message="HTTP (not HTTPS) URL — data sent in plaintext",
+                message="HTTP (not HTTPS) URL - data sent in plaintext",
                 snippet=line.strip()[:80],
                 fix="Use HTTPS for all external URLs.",
             ))
@@ -362,7 +362,7 @@ def check_localstorage_auth(path: Path, rel: str, lines: List[str]) -> List[Find
 
     Tightened: must match auth-specific keywords in the storage key, not just
     the generic word "session" (which catches analytics_session_id, roadmap_session_id,
-    survey_session, etc. — none of which are auth tokens).
+    survey_session, etc. - none of which are auth tokens).
     """
     # Match key strings containing auth-specific terms.
     # Allow generic "session" only when paired with an auth indicator.
@@ -379,7 +379,7 @@ def check_localstorage_auth(path: Path, rel: str, lines: List[str]) -> List[Find
             findings.append(Finding(
                 rule_id="SEC-009", severity=HIGH,
                 file=rel, line=i,
-                message="Auth token stored in localStorage — vulnerable to XSS",
+                message="Auth token stored in localStorage - vulnerable to XSS",
                 snippet=line.strip()[:80],
                 fix="Store auth tokens in httpOnly cookies instead of localStorage.",
             ))
@@ -394,7 +394,7 @@ def check_console_env(path: Path, rel: str, lines: List[str]) -> List[Finding]:
             findings.append(Finding(
                 rule_id="SEC-010", severity=MEDIUM,
                 file=rel, line=i,
-                message="Environment variable logged to console — may leak secrets",
+                message="Environment variable logged to console - may leak secrets",
                 snippet=line.strip()[:80],
                 fix="Never log process.env values. Use structured logging with secret scrubbing.",
             ))
@@ -412,7 +412,7 @@ def check_supabase_service_key_clientside(path: Path, rel: str, lines: List[str]
             findings.append(Finding(
                 rule_id="SEC-011", severity=CRITICAL,
                 file=rel, line=i,
-                message="Supabase service_role key used client-side — bypasses Row Level Security",
+                message="Supabase service_role key used client-side - bypasses Row Level Security",
                 snippet=line.strip()[:80],
                 fix="Never use the service_role key in client-side code. Use the anon key + RLS.",
             ))
@@ -489,7 +489,7 @@ def check_exposed_admin_routes(path: Path, rel: str, lines: List[str]) -> List[F
 
 
 def check_dependency_confusion(path: Path, rel: str, project_root: Path) -> List[Finding]:
-    """SEC-012: Dependency confusion risk — internal package names in package.json."""
+    """SEC-012: Dependency confusion risk - internal package names in package.json."""
     findings = []
     if path.name != "package.json":
         return []
@@ -519,7 +519,7 @@ def check_dependency_confusion(path: Path, rel: str, project_root: Path) -> List
             findings.append(Finding(
                 rule_id="SEC-012", severity=MEDIUM,
                 file=rel, line=0,
-                message=f"Package '{pkg_name}' looks like an internal package — dependency confusion risk",
+                message=f"Package '{pkg_name}' looks like an internal package - dependency confusion risk",
                 snippet=f"{pkg_name}: {all_deps[pkg_name]}",
                 fix="Use scoped packages (@org/name) and configure a private registry for internal packages.",
             ))
@@ -567,7 +567,7 @@ def check_dependency_confusion(path: Path, rel: str, project_root: Path) -> List
             findings.append(Finding(
                 rule_id="SEC-012", severity=MEDIUM,
                 file=rel, line=0,
-                message=f"Scoped packages found ({len(scoped)}) but no .npmrc — ensure registry is correct",
+                message=f"Scoped packages found ({len(scoped)}) but no .npmrc - ensure registry is correct",
                 snippet=", ".join(scoped[:5]),
                 fix="Create .npmrc with the correct registry for your scoped packages.",
             ))
@@ -576,21 +576,21 @@ def check_dependency_confusion(path: Path, rel: str, project_root: Path) -> List
 
 
 def check_xss(path: Path, rel: str, lines: List[str]) -> List[Finding]:
-    """SEC-013: XSS risk — innerHTML, document.write, dangerouslySetInnerHTML, etc.
+    """SEC-013: XSS risk - innerHTML, document.write, dangerouslySetInnerHTML, etc.
 
     Skips:
-      - `<style dangerouslySetInnerHTML>` — CSS-only, common shadcn/chart pattern
-      - `printWindow.document.write` — controlled print preview windows
+      - `<style dangerouslySetInnerHTML>` - CSS-only, common shadcn/chart pattern
+      - `printWindow.document.write` - controlled print preview windows
     """
     findings = []
     if path.suffix not in (".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"):
         return []
     xss_patterns = [
-        (r'\.innerHTML\s*=', "innerHTML assignment — XSS risk if value contains user input"),
-        (r'\.outerHTML\s*=', "outerHTML assignment — XSS risk if value contains user input"),
-        (r'document\.write\s*\(', "document.write() — XSS risk with dynamic content"),
-        (r'dangerouslySetInnerHTML', "dangerouslySetInnerHTML — renders raw HTML (XSS risk)"),
-        (r'\.insertAdjacentHTML\s*\(', "insertAdjacentHTML — XSS risk with unsanitised HTML"),
+        (r'\.innerHTML\s*=', "innerHTML assignment - XSS risk if value contains user input"),
+        (r'\.outerHTML\s*=', "outerHTML assignment - XSS risk if value contains user input"),
+        (r'document\.write\s*\(', "document.write() - XSS risk with dynamic content"),
+        (r'dangerouslySetInnerHTML', "dangerouslySetInnerHTML - renders raw HTML (XSS risk)"),
+        (r'\.insertAdjacentHTML\s*\(', "insertAdjacentHTML - XSS risk with unsanitised HTML"),
     ]
     for i, line in enumerate(lines, 1):
         stripped = line.strip()
@@ -604,10 +604,10 @@ def check_xss(path: Path, rel: str, lines: List[str]) -> List[Finding]:
 
         for pattern, message in xss_patterns:
             if re.search(pattern, line):
-                # Skip <style dangerouslySetInnerHTML> — CSS-only context, common shadcn
+                # Skip <style dangerouslySetInnerHTML> - CSS-only context, common shadcn
                 if "dangerouslysetinnerhtml" in stripped.lower() and "<style" in context:
                     break
-                # Skip printWindow.document.write — controlled print preview
+                # Skip printWindow.document.write - controlled print preview
                 if "document.write" in stripped and "printwindow" in stripped.lower():
                     break
                 findings.append(Finding(
@@ -622,7 +622,7 @@ def check_xss(path: Path, rel: str, lines: List[str]) -> List[Finding]:
 
 
 def check_path_traversal(path: Path, rel: str, lines: List[str]) -> List[Finding]:
-    """SEC-014: Path traversal — unvalidated USER INPUT in file operations.
+    """SEC-014: Path traversal - unvalidated USER INPUT in file operations.
 
     Skips build/dev scripts (where filePath comes from glob results, not user
     input). Flags file ops fed by:
@@ -632,7 +632,7 @@ def check_path_traversal(path: Path, rel: str, lines: List[str]) -> List[Finding
     findings = []
     if path.suffix not in (".js", ".ts", ".mjs", ".cjs", ".py"):
         return []
-    # Skip build / dev tooling scripts — file paths come from glob, not requests
+    # Skip build / dev tooling scripts - file paths come from glob, not requests
     rel_norm = rel.replace("\\", "/")
     if (rel_norm.startswith("scripts/") or "/scripts/" in rel_norm
         or rel_norm.startswith("build/") or "/build/" in rel_norm
@@ -679,7 +679,7 @@ def check_path_traversal(path: Path, rel: str, lines: List[str]) -> List[Finding
             findings.append(Finding(
                 rule_id="SEC-014", severity=HIGH,
                 file=rel, line=i,
-                message="File operation with unsanitised user input — path traversal risk",
+                message="File operation with unsanitised user input - path traversal risk",
                 snippet=stripped[:80],
                 fix="Validate paths. Use path.resolve() and check against an allow-list or base directory.",
             ))
@@ -687,7 +687,7 @@ def check_path_traversal(path: Path, rel: str, lines: List[str]) -> List[Finding
 
 
 def check_ssrf_redirect(path: Path, rel: str, lines: List[str]) -> List[Finding]:
-    """SEC-015: SSRF / Open redirect — USER-CONTROLLED URLs in fetch/redirect.
+    """SEC-015: SSRF / Open redirect - USER-CONTROLLED URLs in fetch/redirect.
 
     To avoid flagging every internal `fetch(url, ...)`, this rule only fires when:
       (a) URL parameter is request data directly (req.body/query/params), OR
@@ -751,7 +751,7 @@ def check_ssrf_redirect(path: Path, rel: str, lines: List[str]) -> List[Finding]
             findings.append(Finding(
                 rule_id="SEC-015", severity=HIGH,
                 file=rel, line=i,
-                message="SSRF — fetching user-supplied URL",
+                message="SSRF - fetching user-supplied URL",
                 snippet=stripped[:80],
                 fix="Validate URLs against an allowlist of trusted domains. Never fetch arbitrary user-supplied URLs.",
             ))
@@ -760,7 +760,7 @@ def check_ssrf_redirect(path: Path, rel: str, lines: List[str]) -> List[Finding]
             findings.append(Finding(
                 rule_id="SEC-015", severity=MEDIUM,
                 file=rel, line=i,
-                message="Open redirect — redirecting to user-supplied URL",
+                message="Open redirect - redirecting to user-supplied URL",
                 snippet=stripped[:80],
                 fix="Validate redirect targets against an allowlist. Use relative paths or domain-checked URLs.",
             ))
@@ -768,13 +768,13 @@ def check_ssrf_redirect(path: Path, rel: str, lines: List[str]) -> List[Finding]
 
 
 def check_nosql_injection(path: Path, rel: str, lines: List[str]) -> List[Finding]:
-    """SEC-016: NoSQL injection — unsanitised user input in MongoDB/Mongoose queries."""
+    """SEC-016: NoSQL injection - unsanitised user input in MongoDB/Mongoose queries."""
     findings = []
     if path.suffix not in (".js", ".ts", ".mjs", ".cjs", ".py"):
         return []
     nosql_patterns = [
-        (r'\.(?:find|findOne|findById|updateOne|updateMany|deleteOne|deleteMany|aggregate|countDocuments)\s*\(\s*\{[^}]*(?:req\.body|req\.query|req\.params)', "NoSQL injection — user input passed directly to MongoDB query"),
-        (r'\.(?:find|findOne|findById|updateOne|updateMany|deleteOne|deleteMany)\s*\(\s*(?:req\.body|req\.query)', "NoSQL injection — user input used as query object"),
+        (r'\.(?:find|findOne|findById|updateOne|updateMany|deleteOne|deleteMany|aggregate|countDocuments)\s*\(\s*\{[^}]*(?:req\.body|req\.query|req\.params)', "NoSQL injection - user input passed directly to MongoDB query"),
+        (r'\.(?:find|findOne|findById|updateOne|updateMany|deleteOne|deleteMany)\s*\(\s*(?:req\.body|req\.query)', "NoSQL injection - user input used as query object"),
     ]
     for i, line in enumerate(lines, 1):
         stripped = line.strip()
@@ -852,16 +852,16 @@ def check_deserialization(path: Path, rel: str, lines: List[str]) -> List[Findin
         return []
     deser_patterns = [
         # Python pickle
-        (r'pickle\.loads?\s*\(', "Unsafe deserialization with pickle — arbitrary code execution risk"),
-        (r'pickle\.Unpickler\s*\(', "Unsafe deserialization with pickle.Unpickler — arbitrary code execution risk"),
-        (r'cPickle\.loads?\s*\(', "Unsafe deserialization with cPickle — arbitrary code execution risk"),
-        (r'shelve\.open\s*\(', "shelve uses pickle internally — arbitrary code execution risk"),
+        (r'pickle\.loads?\s*\(', "Unsafe deserialization with pickle - arbitrary code execution risk"),
+        (r'pickle\.Unpickler\s*\(', "Unsafe deserialization with pickle.Unpickler - arbitrary code execution risk"),
+        (r'cPickle\.loads?\s*\(', "Unsafe deserialization with cPickle - arbitrary code execution risk"),
+        (r'shelve\.open\s*\(', "shelve uses pickle internally - arbitrary code execution risk"),
         # Python yaml.load without SafeLoader
-        (r'yaml\.load\s*\([^)]*(?!Loader\s*=\s*(?:yaml\.)?SafeLoader)', "yaml.load without SafeLoader — arbitrary code execution risk"),
+        (r'yaml\.load\s*\([^)]*(?!Loader\s*=\s*(?:yaml\.)?SafeLoader)', "yaml.load without SafeLoader - arbitrary code execution risk"),
         # JS unserialize
-        (r'(?:unserialize|deserialize)\s*\(\s*(?:req\.|params|query|body)', "Deserialization of user-controlled data — code injection risk"),
+        (r'(?:unserialize|deserialize)\s*\(\s*(?:req\.|params|query|body)', "Deserialization of user-controlled data - code injection risk"),
         # Node.js node-serialize
-        (r'serialize\.unserialize\s*\(', "node-serialize unserialize — known remote code execution vulnerability"),
+        (r'serialize\.unserialize\s*\(', "node-serialize unserialize - known remote code execution vulnerability"),
     ]
     for i, line in enumerate(lines, 1):
         stripped = line.strip()
@@ -889,12 +889,12 @@ def check_unrestricted_upload(path: Path, rel: str, lines: List[str]) -> List[Fi
 
     upload_patterns = [
         # Multer without file filter
-        (r'\bmulter\s*\(\s*\{[^}]*(?:dest|storage)\s*:', r'fileFilter', "Multer upload without fileFilter — unrestricted file types accepted"),
+        (r'\bmulter\s*\(\s*\{[^}]*(?:dest|storage)\s*:', r'fileFilter', "Multer upload without fileFilter - unrestricted file types accepted"),
         # Express file upload (req.files / req.file with .mv() / .save() etc)
         (r'\breq\.files?\.[\w$]+\.(?:mv|save|move|pipe)\s*\(', r'(?:mimetype|extension|allowedTypes|fileFilter|whitelist)', "File upload handler without type validation"),
-        # Python Flask file upload — only when used with .save() (not just any reference)
+        # Python Flask file upload - only when used with .save() (not just any reference)
         (r'\brequest\.files\b[^.]*?\.save\s*\(', r'(?:allowed_extensions|ALLOWED_EXTENSIONS|content_type|secure_filename|filename\.endswith)', "Flask file upload without extension/type validation"),
-        # FastAPI UploadFile — only as a route parameter type annotation
+        # FastAPI UploadFile - only as a route parameter type annotation
         (r'(?:async\s+def|def)\s+\w+\s*\([^)]*:\s*UploadFile\b', r'(?:allowed_extensions|ALLOWED_EXTENSIONS|content_type|secure_filename|filename\.endswith|file\.content_type)', "FastAPI UploadFile without extension/type validation"),
     ]
     for upload_re, guard_re, message in upload_patterns:
@@ -1035,7 +1035,7 @@ def scan_project_v2(project_root: Path, config=None) -> ScanResult:
       - Quality history tracking when dashboard is enabled
 
     When *config* is ``None`` (or specifies no domains) only the built-in
-    security domain runs — preserving identical behaviour to ``scan_project``.
+    security domain runs - preserving identical behaviour to ``scan_project``.
 
     Args:
         project_root: Absolute path to the project root.
@@ -1175,7 +1175,7 @@ def scan_project_v2(project_root: Path, config=None) -> ScanResult:
                     file="",
                     line=0,
                     message=f"Unknown domain '{name}' specified in configuration",
-                    fix="Check your ai-security-scan.yml — valid domains: security, lint, typecheck, sast, sca, iac, container",
+                    fix="Check your ai-security-scan.yml - valid domains: security, lint, typecheck, sast, sca, iac, container",
                     domain=name,
                     tool="",
                     category="config",

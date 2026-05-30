@@ -26,7 +26,7 @@ def format_console(result: ScanResult, no_color: bool = False) -> str:
         return f"{SEVERITY_ANSI.get(s, '')}{s}{RESET}"
 
     lines.append(f"\n{'═'*70}")
-    lines.append(f"  SECURITY SCAN — {result.scanned} files scanned, {len(result.findings)} findings")
+    lines.append(f"  SECURITY SCAN - {result.scanned} files scanned, {len(result.findings)} findings")
     lines.append(f"{'═'*70}")
 
     if not result.findings:
@@ -78,7 +78,7 @@ def format_json(result: ScanResult) -> str:
 
 
 def format_sarif(result: ScanResult, tool_version=None) -> str:
-    """SARIF 2.1 format — supported by GitHub Code Scanning."""
+    """SARIF 2.1 format - supported by GitHub Code Scanning."""
     if tool_version is None:
         try:
             from . import __version__

@@ -1,5 +1,5 @@
 """
-Tool provisioner — downloads, verifies, and extracts managed tool binaries.
+Tool provisioner - downloads, verifies, and extracts managed tool binaries.
 
 All operations use stdlib only (urllib, tarfile, zipfile, hashlib).
 """

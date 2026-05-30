@@ -118,7 +118,7 @@ class ToolRunner:
         """Run a tool and parse its stdout as JSON.
 
         Returns:
-            (parsed_json, tool_output)  — parsed_json is None on parse failure.
+            (parsed_json, tool_output)  - parsed_json is None on parse failure.
         """
         output = self.run_tool(cmd, cwd=cwd, timeout=timeout, env=env)
         parsed = None

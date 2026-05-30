@@ -14,7 +14,7 @@ from typing import Any, Dict
 
 
 def run_mcp_server():
-    """Main MCP server loop — reads JSON-RPC from stdin, writes to stdout."""
+    """Main MCP server loop - reads JSON-RPC from stdin, writes to stdout."""
     # Send server info
     _write({"jsonrpc": "2.0", "method": "server/info", "params": {
         "name": "security-scan",
@@ -67,7 +67,7 @@ def run_mcp_server():
             _write({"jsonrpc": "2.0", "id": req_id, "error": {
                 "code": -32601, "message": f"Unknown method: {method}",
             }})
-        # else: notification without id — no response needed
+        # else: notification without id - no response needed
 
 
 def _write(obj: dict):

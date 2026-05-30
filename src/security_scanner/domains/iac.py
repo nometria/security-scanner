@@ -1,5 +1,5 @@
 """
-IaC domain — Infrastructure-as-Code misconfiguration scanning via Checkov.
+IaC domain - Infrastructure-as-Code misconfiguration scanning via Checkov.
 """
 
 import time

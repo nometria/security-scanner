@@ -1,5 +1,5 @@
 """
-SAST domain — Static Application Security Testing via OpenGrep (semgrep fork).
+SAST domain - Static Application Security Testing via OpenGrep (semgrep fork).
 
 Runs ``opengrep scan`` (or ``semgrep scan``) with JSON output and normalises
 results into the common Finding format.

@@ -19,7 +19,7 @@ CONFIG_FILENAMES = ("ai-security-scan.yml", ".ai-security-scan.yml")
 class ScanConfig:
     """User-facing configuration.
 
-    Designed to be minimal — most users need only ``domains`` and ``fail_on``.
+    Designed to be minimal - most users need only ``domains`` and ``fail_on``.
     """
 
     # Which domains to run (empty = all available)

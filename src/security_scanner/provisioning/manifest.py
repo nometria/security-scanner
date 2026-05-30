@@ -1,5 +1,5 @@
 """
-Tool manifest — pinned versions and download URLs for managed tools.
+Tool manifest - pinned versions and download URLs for managed tools.
 
 Each entry describes a single external binary with per-platform download URLs,
 SHA-256 checksums, and extraction paths.

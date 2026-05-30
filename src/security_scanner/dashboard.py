@@ -2,7 +2,7 @@
 QUALITY.md dashboard generator.
 
 Produces a Markdown report summarising the latest scan that can be committed
-to git — providing quality trending without any server infrastructure.
+to git - providing quality trending without any server infrastructure.
 """
 
 import time
@@ -17,7 +17,7 @@ def generate_dashboard(result: ScanResult, project_name: str = "") -> str:
     # Header
     status = "PASS" if result.passed else "FAIL"
     badge = "brightgreen" if result.passed else "red"
-    lines.append(f"# Quality Dashboard{' — ' + project_name if project_name else ''}")
+    lines.append(f"# Quality Dashboard{' - ' + project_name if project_name else ''}")
     lines.append("")
     lines.append(f"![Status](https://img.shields.io/badge/quality-{status}-{badge})")
     lines.append(f"![Findings](https://img.shields.io/badge/findings-{len(result.findings)}-blue)")

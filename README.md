@@ -1,12 +1,12 @@
 # security-scan
 
-Built by the [Nometria](https://nometria.com) team. We help developers take apps built with AI tools (Lovable, Bolt, Base44, Replit) to production — handling deployment to AWS, security, scaling, and giving you full code ownership. [Learn more →](https://nometria.com)
+Built by the [Nometria](https://nometria.com) team. We help developers take apps built with AI tools (Lovable, Bolt, Base44, Replit) to production - handling deployment to AWS, security, scaling, and giving you full code ownership. [Learn more →](https://nometria.com)
 
 > Multi-domain code quality gate for AI-generated web apps.
 
 AI code generators (Lovable, Bolt, v0, Cursor, Copilot) frequently produce code with
 hardcoded secrets, missing auth guards, SQL injection patterns, and CORS misconfigs.
-This scanner catches those before they hit production — plus linting, SAST, SCA, and more.
+This scanner catches those before they hit production - plus linting, SAST, SCA, and more.
 
 **Zero dependencies for core security rules. Pure Python stdlib.**
 
@@ -64,7 +64,7 @@ Options:
 
 ---
 
-## Security rules (SEC-001 — SEC-019)
+## Security rules (SEC-001 - SEC-019)
 
 | Rule | Severity | Catches |
 |------|----------|---------|
@@ -81,9 +81,9 @@ Options:
 | SEC-011 | CRITICAL | Supabase `service_role` key used client-side |
 | SEC-012 | MEDIUM | Dependency confusion risk in `package.json` |
 | SEC-013 | MEDIUM | XSS via `innerHTML`, `document.write`, `dangerouslySetInnerHTML` |
-| SEC-014 | HIGH | Path traversal — unvalidated file paths in `sendFile`/`readFile` |
-| SEC-015 | HIGH/MEDIUM | SSRF / Open redirect — user-controlled URLs in `fetch`/`redirect` |
-| SEC-016 | HIGH | NoSQL injection — unsanitised input in MongoDB queries |
+| SEC-014 | HIGH | Path traversal - unvalidated file paths in `sendFile`/`readFile` |
+| SEC-015 | HIGH/MEDIUM | SSRF / Open redirect - user-controlled URLs in `fetch`/`redirect` |
+| SEC-016 | HIGH | NoSQL injection - unsanitised input in MongoDB queries |
 | SEC-017 | MEDIUM | Missing CSRF protection on state-changing routes |
 | SEC-018 | HIGH | Deserialization of untrusted data (`pickle`, `yaml.load`, `unserialize`) |
 | SEC-019 | HIGH | Unrestricted file upload without type validation |
@@ -180,11 +180,13 @@ comprehensive SAST coverage, enable the `sast` domain (Semgrep/OpenGrep).
 
 ## Scan domains
 
-Beyond the built-in security rules, the scanner can invoke external tools:
+Beyond the built-in security rules, the scanner can invoke external tools and
+ship compliance frameworks out of the box:
 
 | Domain | Tools | What it checks |
 |--------|-------|---------------|
-| **security** | built-in (always available) | 16 regex rules (SEC-001 — SEC-016) |
+| **security** | built-in (always available) | 19 regex rules (SEC-001 - SEC-019) |
+| **compliance** | built-in (always available) | 33 rules across HIPAA, SOC 2, OWASP, FedRAMP with interactive fixer + manual checklist |
 | **lint** | Ruff, ESLint, Biome, Clippy, GoLangCI-Lint | Code style and logic errors |
 | **typecheck** | MyPy, Pyright, tsc | Static type errors |
 | **sast** | OpenGrep / Semgrep | Security vulnerabilities via SAST rules |
@@ -199,9 +201,82 @@ Domains auto-detect which tools are installed. Missing tools are silently skippe
 # Run only security + lint
 security-scan . --domains security,lint
 
-# Run everything available
+# Run everything available (excluding compliance - it can be noisy on early-stage apps)
 security-scan .
+
+# Include the compliance domain in the unified scan
+security-scan . --include-compliance
 ```
+
+---
+
+## Compliance domain - HIPAA · SOC 2 · OWASP · FedRAMP
+
+The compliance scanner is a dedicated subcommand with the full flag surface from
+the original `security-validator` package (which was merged into this one).
+
+```bash
+# Full compliance scan across all 4 frameworks
+security-scan compliance .
+
+# One framework at a time
+security-scan compliance . --framework HIPAA
+security-scan compliance . --framework FEDRAMP --fail-on CRITICAL
+
+# Interactive auto-fix: shows a unified diff before each change
+security-scan compliance . --fix
+
+# CI mode: apply every auto-fixable patch without prompting
+security-scan compliance . --fix-all
+
+# Dry-run: show what --fix would do without writing files
+security-scan compliance . --fix --dry-run
+
+# AST-based per-endpoint vulnerability map (FastAPI / Express)
+security-scan compliance . --endpoint-report
+
+# Manual-action checklist (MFA, BAA, RLS, encryption-at-rest, FedRAMP PIV/CAC…)
+security-scan compliance . --checklist --checklist-output COMPLIANCE_CHECKLIST.md
+
+# HTML report
+security-scan compliance . --format html --output compliance-report.html
+```
+
+**Auto-fixable issues** (6 today, more being added):
+
+| Rule | Issue | Fix applied |
+|------|-------|-------------|
+| FEDRAMP-002 | `allow_methods=["*"]` | Replaced with explicit method list |
+| FEDRAMP-003 | FastAPI `/docs` exposed | Adds `docs_url=None, redoc_url=None` |
+| FEDRAMP-004 | Docker runs as root | Adds `USER appuser` directive |
+| FEDRAMP-005 | Uvicorn `--reload` in prod | Removes `--reload` flag |
+| FEDRAMP-009 | CORS placeholder origins + credentials | Removes placeholder, sets `allow_credentials=False` |
+| HIPAA-007 | `DEBUG=True` in config | Sets `DEBUG=False` |
+
+**Manual action checklist (14 items)** generated by `--checklist` covers the
+non-codable parts of compliance: MFA, BAA with OpenAI, Sentry PHI filtering,
+Mixpanel evaluation, RLS, encryption at rest, audit logging, password policy,
+account lockout, breach detection, secrets rotation, dependency CVE scanning,
+PIV/CAC support, and System Security Plan preparation.
+
+**Backwards compatibility:** the original `hipaa-soc2-scan` console script is
+preserved - `hipaa-soc2-scan .` is identical to `security-scan compliance .`.
+
+### Compliance rules
+
+**HIPAA** (45 CFR 164 - Technical Safeguards): HIPAA-001..007 covering hardcoded
+credentials, PHI in logs, unencrypted HTTP, missing auth, internal error
+exposure, TLS verification disabled, debug mode.
+
+**SOC 2 Type II** (AICPA TSC): rate limiting, sensitive data in cookies,
+missing CSP, missing input validation, and more (`security_scanner/compliance/rules/soc2_rules.py`).
+
+**OWASP Top 10**: SQL injection, path traversal, eval()/exec(), and more
+(`security_scanner/compliance/rules/owasp_rules.py`).
+
+**FedRAMP Moderate** (NIST SP 800-53 Rev 5): FEDRAMP-001..012 - VITE_-prefixed
+secrets, CORS wildcards, exposed docs, root Docker, MFA, RLS, vulnerable deps,
+raw dict bodies, subprocess shell=True, and more.
 
 ---
 
@@ -214,9 +289,9 @@ The scanner integrates with Claude Code via the Model Context Protocol.
 security-scan init
 
 # This generates:
-#   ai-security-scan.yml    — scan configuration
-#   .mcp.json               — tells Claude Code to use our MCP server
-#   .claude/CLAUDE.md       — instructions for Claude
+#   ai-security-scan.yml    - scan configuration
+#   .mcp.json               - tells Claude Code to use our MCP server
+#   .claude/CLAUDE.md       - instructions for Claude
 ```
 
 After `init`, restart Claude Code. Claude can then:

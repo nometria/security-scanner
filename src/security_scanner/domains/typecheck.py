@@ -1,5 +1,5 @@
 """
-Type checking domain — wraps static type checkers.
+Type checking domain - wraps static type checkers.
 
 Supported tools:
   - MyPy     (Python)

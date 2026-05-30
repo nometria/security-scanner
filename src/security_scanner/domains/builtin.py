@@ -1,5 +1,5 @@
 """
-Built-in security domain — wraps the existing regex-based check_* functions.
+Built-in security domain - wraps the existing regex-based check_* functions.
 
 This domain is always available (zero external dependencies) and provides
 the original SEC-001 through SEC-012 rules.

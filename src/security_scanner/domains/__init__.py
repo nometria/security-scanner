@@ -1,10 +1,10 @@
 """
-Domain registry — discovers and manages scan domains.
+Domain registry - discovers and manages scan domains.
 
 Domains can be registered in two ways:
 
-1. **Built-in** — imported directly in this module.
-2. **Plugin** — third-party packages declare an entry point under the group
+1. **Built-in** - imported directly in this module.
+2. **Plugin** - third-party packages declare an entry point under the group
    ``ai_security_scan.domains`` and are discovered at runtime via
    ``importlib.metadata``.
 """
@@ -78,8 +78,15 @@ from .typecheck import TypeCheckDomain  # noqa: E402
 from .sast import SastDomain  # noqa: E402
 from .iac import IacDomain  # noqa: E402
 from .container import ContainerDomain  # noqa: E402
+from .compliance import ComplianceDomain  # noqa: E402
 
 register_domain("typecheck", TypeCheckDomain)
 register_domain("sast", SastDomain)
 register_domain("iac", IacDomain)
 register_domain("container", ContainerDomain)
+
+# Compliance domain (HIPAA / SOC 2 / OWASP / FedRAMP). Always-on like the
+# built-in security rules - it has zero external tool deps beyond what's
+# already in the scanner package (rich/click/regex/jinja2 are listed in
+# pyproject as required for the merged package).
+register_domain("compliance", ComplianceDomain)

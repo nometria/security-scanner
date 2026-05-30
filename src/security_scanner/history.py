@@ -1,5 +1,5 @@
 """
-Quality history tracking — stores scan snapshots for trend analysis.
+Quality history tracking - stores scan snapshots for trend analysis.
 
 Maintains a JSON history file at ``.ai-security-scan/quality-history.json``
 and supports health score calculation with trend indicators.

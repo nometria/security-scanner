@@ -85,10 +85,10 @@ def _init_command():
             "Run `security-scan .` to check for security issues, "
             "linting errors, and dependency vulnerabilities.\n\n"
             "## Available commands\n"
-            "- `security-scan .` — full scan\n"
-            "- `security-scan . --fix` — scan and auto-fix lint issues\n"
-            "- `security-scan . --mode pr --base-ref origin/main` — scan PR changes only\n"
-            "- `security-scan . --format json` — JSON output for CI\n"
+            "- `security-scan .` - full scan\n"
+            "- `security-scan . --fix` - scan and auto-fix lint issues\n"
+            "- `security-scan . --mode pr --base-ref origin/main` - scan PR changes only\n"
+            "- `security-scan . --format json` - JSON output for CI\n"
         )
         print("Created: .claude/CLAUDE.md")
     else:
@@ -145,6 +145,31 @@ def _serve_command():
     """Start MCP stdio server for Claude Code integration."""
     from security_scanner.mcp_server import run_mcp_server
     run_mcp_server()
+
+
+# ── Compliance subcommand ────────────────────────────────────────────────────
+
+def _compliance_command():
+    """Run the HIPAA / SOC 2 / OWASP / FedRAMP compliance scanner.
+
+    This delegates to the ported compliance CLI, which still supports its full
+    original flag set: ``--framework``, ``--fix`` (interactive), ``--fix-all``,
+    ``--dry-run``, ``--checklist``, ``--checklist-output``, ``--endpoint-report``,
+    ``--no-remediation``, ``--format`` (console|json|html|checklist), ``--output``,
+    ``--fail-on``.
+
+    Usage:
+        security-scan compliance .                       # all 4 frameworks
+        security-scan compliance . --framework HIPAA
+        security-scan compliance . --fix                 # interactive auto-fix
+        security-scan compliance . --checklist
+        security-scan compliance . --endpoint-report
+    """
+    # Strip the "compliance" subcommand token so the inner CLI sees a clean argv.
+    # The inner CLI uses click and reads sys.argv itself.
+    sys.argv = [sys.argv[0]] + sys.argv[2:]
+    from security_scanner.compliance.cli import main as compliance_main
+    compliance_main()
 
 
 # ── Tools subcommand ─────────────────────────────────────────────────────────
@@ -297,6 +322,9 @@ def main():
         if cmd == "tools":
             _tools_cli()
             return
+        if cmd == "compliance":
+            _compliance_command()
+            return
 
     parser = argparse.ArgumentParser(
         prog="security-scan",
@@ -319,6 +347,16 @@ def main():
     parser.add_argument("--domains", default="", help="Comma-separated domains to run")
     parser.add_argument("--fix", action="store_true", help="Auto-fix lint and formatting issues")
     parser.add_argument("--strict", action="store_true", help="Missing tools are findings")
+    parser.add_argument(
+        "--include-compliance",
+        action="store_true",
+        help=(
+            "Also run the compliance domain (HIPAA / SOC 2 / OWASP / FedRAMP). "
+            "Equivalent to adding 'compliance' to --domains. For the full "
+            "compliance workflow (interactive fix, checklist, endpoint report) "
+            "use the dedicated subcommand: `security-scan compliance .`"
+        ),
+    )
     args = parser.parse_args()
 
     root = Path(args.path).resolve()
@@ -371,6 +409,13 @@ def main():
         config.dashboard = True
     if args.fix:
         config.fix = True
+    if args.include_compliance:
+        # Append compliance to whatever domains were already selected, without
+        # duplicating it (CLI > config file > defaults).
+        existing = list(getattr(config, "domains", []) or [])
+        if "compliance" not in existing:
+            existing.append("compliance")
+        config.domains = existing
 
     print(f"Scanning {root} ...", file=sys.stderr)
     result = scan_project_v2(root, config)
@@ -403,7 +448,7 @@ def _run_fix(root: Path, result):
 
     tools_run = []
 
-    # Ruff lint fix — only if ruff findings exist
+    # Ruff lint fix - only if ruff findings exist
     if shutil.which("ruff") and any(f.rule_id.startswith("LINT-RUFF") for f in result.findings):
         print("  Fixing: ruff check ...", file=sys.stderr, end=" ")
         try:
@@ -414,7 +459,7 @@ def _run_fix(root: Path, result):
         except (subprocess.TimeoutExpired, FileNotFoundError) as e:
             print(f"failed: {e}", file=sys.stderr)
 
-    # ESLint fix — only if eslint findings exist
+    # ESLint fix - only if eslint findings exist
     if shutil.which("eslint") and any(f.rule_id.startswith("LINT-ESLINT") for f in result.findings):
         print("  Fixing: eslint ...", file=sys.stderr, end=" ")
         try:

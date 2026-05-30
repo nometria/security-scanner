@@ -1,5 +1,5 @@
 """
-Diff analysis agent — maps changed files to relevant scan domains.
+Diff analysis agent - maps changed files to relevant scan domains.
 
 Basic mode (default): rule-based mapping from file extensions to domains.
 Advanced mode (optional): sends diff summary to an LLM for risk-area identification.
@@ -98,11 +98,11 @@ class DiffAnalyzer:
                 f"Security-sensitive files changed: {', '.join(priority_files[:5])}"
             )
         if "sca" in domains:
-            reasoning_parts.append("Dependency files changed — SCA scan recommended")
+            reasoning_parts.append("Dependency files changed - SCA scan recommended")
         if "iac" in domains:
-            reasoning_parts.append("Infrastructure files changed — IaC scan recommended")
+            reasoning_parts.append("Infrastructure files changed - IaC scan recommended")
         if "container" in domains:
-            reasoning_parts.append("Docker files changed — container scan recommended")
+            reasoning_parts.append("Docker files changed - container scan recommended")
 
         return ScanPlan(
             domains=sorted(domains),

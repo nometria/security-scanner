@@ -4,12 +4,12 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ai-security-scan"
-version = "0.3.0"
-description = "Multi-domain code quality gate for AI-generated apps. Security scanning, linting, SAST, SCA, IaC, container, testing, coverage, and duplication detection."
+version = "0.4.0"
+description = "Multi-domain code quality + compliance gate for AI-generated apps. Security scanning, linting, SAST, SCA, IaC, container - plus HIPAA, SOC 2, OWASP, and FedRAMP compliance with auto-fix, manual-action checklist, and per-endpoint vulnerability mapping."
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.9"
-keywords = ["security", "scanner", "static-analysis", "secrets", "devsecops", "sast", "quality-gate", "lint", "sca"]
+keywords = ["security", "scanner", "static-analysis", "secrets", "devsecops", "sast", "quality-gate", "lint", "sca", "hipaa", "soc2", "fedramp", "owasp", "compliance"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -18,7 +18,15 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
 ]
-dependencies = []
+# Core security rules use stdlib only. Compliance domain (HIPAA/SOC2/OWASP/
+# FedRAMP) needs rich+click for its interactive fixer and console reporter,
+# regex for the more complex framework rules, and jinja2 for the HTML report.
+dependencies = [
+    "rich>=13",
+    "click>=8",
+    "regex>=2023.0.0",
+    "jinja2>=3",
+]
 
 [project.optional-dependencies]
 dev = ["pytest>=7", "ruff>=0.4"]
@@ -26,9 +34,13 @@ yaml = ["pyyaml>=6"]
 
 [project.scripts]
 security-scan = "security_scanner.cli:main"
+# Backwards-compat entry point for users migrating from the standalone
+# security-validator package. Both names point at the same CLI.
+hipaa-soc2-scan = "security_scanner.compliance.cli:main"
 
 [project.entry-points."ai_security_scan.domains"]
 security = "security_scanner.domains.builtin:BuiltinSecurityDomain"
+compliance = "security_scanner.domains.compliance:ComplianceDomain"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/security_scanner"]

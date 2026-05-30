@@ -1,5 +1,5 @@
 """
-Linting domain — wraps language-specific linters.
+Linting domain - wraps language-specific linters.
 
 Supported tools:
   - Ruff        (Python)

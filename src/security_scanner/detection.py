@@ -75,7 +75,7 @@ _TOOL_CONFIGS: Dict[str, str] = {
 
 
 class ProjectContext:
-    """Detected project context — languages, frameworks, existing tools."""
+    """Detected project context - languages, frameworks, existing tools."""
 
     def __init__(self, project_root: Path):
         self.root = project_root

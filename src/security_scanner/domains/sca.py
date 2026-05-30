@@ -1,5 +1,5 @@
 """
-SCA domain — Software Composition Analysis (dependency vulnerability scanning).
+SCA domain - Software Composition Analysis (dependency vulnerability scanning).
 
 Uses Trivy to scan lock files / manifests for known CVEs.
 """

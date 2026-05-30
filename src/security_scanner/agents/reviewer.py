@@ -1,5 +1,5 @@
 """
-Review agent — triages scan findings to reduce false positives.
+Review agent - triages scan findings to reduce false positives.
 
 Basic mode (default): heuristic suppression (test files, known FP patterns).
 Advanced mode (optional): LLM-powered structured verdicts.
@@ -167,7 +167,7 @@ class ReviewAgent:
         # High-confidence true positives
         if finding.severity == "CRITICAL" and is_tp:
             confidence = 0.95
-            explanation = "Critical severity finding — high confidence true positive"
+            explanation = "Critical severity finding - high confidence true positive"
 
         return FindingVerdict(
             finding=finding,

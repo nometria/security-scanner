@@ -1,5 +1,5 @@
 """
-Container domain — container image vulnerability scanning via Trivy.
+Container domain - container image vulnerability scanning via Trivy.
 
 Detects Dockerfiles in the project, identifies the image name, and scans
 for known CVEs in the container layers.
