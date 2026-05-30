@@ -22,8 +22,6 @@ from rich.panel import Panel
 from rich.table import Table
 from rich import box
 
-from security_scanner.compliance.config import Severity
-from security_scanner.compliance.rules.base import Finding
 
 if TYPE_CHECKING:
     from security_scanner.compliance.scanner import ScanReport
@@ -497,8 +495,8 @@ class ChecklistReporter:
             lines += [
                 f"## [{item['id']}] {item['title']}",
                 "",
-                f"| Field | Value |",
-                f"|---|---|",
+                "| Field | Value |",
+                "|---|---|",
                 f"| **Severity** | {sev_badge} |",
                 f"| **Framework** | {item['framework']} |",
                 f"| **Category** | {item['category']} |",

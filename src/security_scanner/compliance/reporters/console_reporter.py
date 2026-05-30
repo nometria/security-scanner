@@ -121,7 +121,7 @@ class ConsoleReporter:
                     continue
                 color = SEVERITY_COLORS.get(f.severity, "white")
                 auto_fix_note = (
-                    f"  [green]⚡ Auto-fixable - run with [bold]--fix[/bold][/green]\n"
+                    "  [green]⚡ Auto-fixable - run with [bold]--fix[/bold][/green]\n"
                     if f.rule_id in RULE_TO_FIX else ""
                 )
                 self.console.print(

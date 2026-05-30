@@ -21,7 +21,7 @@ import ast
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, Iterator, List, Optional, Set
+from typing import Dict, List, Optional
 
 from security_scanner.compliance.rules.base import Finding
 

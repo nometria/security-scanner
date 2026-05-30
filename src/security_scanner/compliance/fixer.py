@@ -28,7 +28,6 @@ from __future__ import annotations
 import difflib
 import re
 import shutil
-import textwrap
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
@@ -36,7 +35,6 @@ from typing import Callable, Dict, List, Optional, Tuple
 from rich.console import Console
 from rich.panel import Panel
 from rich.syntax import Syntax
-from rich.text import Text
 
 from security_scanner.compliance.rules.base import Finding
 

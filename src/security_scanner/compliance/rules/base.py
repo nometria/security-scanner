@@ -11,9 +11,9 @@ Design: rules are stateless and can be applied in parallel.
 
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterator, List, Optional
+from typing import Iterator, Optional
 
 from security_scanner.compliance.config import Framework, Severity
 
