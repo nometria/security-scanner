@@ -71,6 +71,11 @@ def format_json(result: ScanResult) -> str:
                 "rule_id": f.rule_id, "severity": f.severity,
                 "file": f.file, "line": f.line,
                 "message": f.message, "snippet": f.snippet, "fix": f.fix,
+                # Compliance findings carry framework (category) + reference (url);
+                # emit them only when present so security-only output is unchanged.
+                **({"domain": f.domain} if getattr(f, "domain", "security") != "security" else {}),
+                **({"framework": f.category} if getattr(f, "category", "") else {}),
+                **({"reference": f.url} if getattr(f, "url", "") else {}),
             }
             for f in result.findings
         ],
@@ -88,9 +93,25 @@ def format_sarif(result: ScanResult, tool_version=None) -> str:
     rules = {}
     for f in result.findings:
         if f.rule_id not in rules:
-            rules[f.rule_id] = {"id": f.rule_id, "name": f.rule_id,
-                                 "shortDescription": {"text": f.message},
-                                 "defaultConfiguration": {"level": _sarif_level(f.severity)}}
+            rule = {"id": f.rule_id, "name": f.rule_id,
+                    "shortDescription": {"text": f.message},
+                    "defaultConfiguration": {"level": _sarif_level(f.severity)}}
+            # Surface domain + framework (compliance maps framework->category,
+            # reference->url) so GitHub Code Scanning shows the regulatory tag.
+            domain = getattr(f, "domain", "security")
+            framework = getattr(f, "category", "")
+            reference = getattr(f, "url", "")
+            tags = [t for t in (domain, framework) if t and t != "security"]
+            props = {}
+            if framework:
+                props["framework"] = framework
+            if reference:
+                props["reference"] = reference
+            if tags:
+                props["tags"] = tags
+            if props:
+                rule["properties"] = props
+            rules[f.rule_id] = rule
     sarif = {
         "$schema": "https://schemastore.azurewebsites.net/schemas/json/sarif-2.1.0-rtm.5.json",
         "version": "2.1.0",
@@ -126,18 +147,41 @@ def format_markdown(result: ScanResult) -> str:
         lines.append("No security issues found. ✅")
         return "\n".join(lines)
 
-    lines.append("## Findings\n")
-    lines.append("| Severity | Rule | File | Line | Issue |")
-    lines.append("|----------|------|------|------|-------|")
+    # Add a Framework column only when compliance findings are present, so the
+    # report matches the hosted tool's framework-aware Markdown export.
+    has_fw = any(getattr(f, "category", "") for f in result.findings)
+    by_fw: dict = {}
     for f in result.findings:
-        emoji = SEVERITY_EMOJI.get(f.severity, "⚪")
-        lines.append(f"| {emoji} {f.severity} | `{f.rule_id}` | `{f.file}` | {f.line} | {f.message} |")
+        fw = getattr(f, "category", "")
+        if fw:
+            by_fw[fw] = by_fw.get(fw, 0) + 1
+    if by_fw:
+        lines.append("**By framework**: "
+                     + " · ".join(f"{k} {v}" for k, v in sorted(by_fw.items())) + "\n")
+
+    lines.append("## Findings\n")
+    if has_fw:
+        lines.append("| Severity | Rule | Framework | File | Line | Issue |")
+        lines.append("|----------|------|-----------|------|------|-------|")
+        for f in result.findings:
+            emoji = SEVERITY_EMOJI.get(f.severity, "⚪")
+            fw = getattr(f, "category", "") or "—"
+            lines.append(f"| {emoji} {f.severity} | `{f.rule_id}` | {fw} | `{f.file}` | {f.line} | {f.message} |")
+    else:
+        lines.append("| Severity | Rule | File | Line | Issue |")
+        lines.append("|----------|------|------|------|-------|")
+        for f in result.findings:
+            emoji = SEVERITY_EMOJI.get(f.severity, "⚪")
+            lines.append(f"| {emoji} {f.severity} | `{f.rule_id}` | `{f.file}` | {f.line} | {f.message} |")
 
     lines.append("\n## Fix Guidance\n")
     shown = set()
     for f in result.findings:
         if f.fix and f.rule_id not in shown:
             lines.append(f"### {f.rule_id}")
+            ref = getattr(f, "url", "")
+            if ref:
+                lines.append(f"_{ref}_\n")
             lines.append(f"{f.fix}\n")
             shown.add(f.rule_id)
 
